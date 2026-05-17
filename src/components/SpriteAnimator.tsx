@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { removeBackground } from '@/utils/imageProcessor';
+import { removeWhiteBackground } from '@/utils/imageProcessor';
 
 export type SpriteAnimation = 'idle' | 'breathe' | 'float' | 'shake' | 'pulse' | 'vine-writhing' | 'none';
 
@@ -22,26 +22,17 @@ export default function SpriteAnimator({
   flipX = false,
   showShadow = true,
 }: SpriteAnimatorProps) {
-  const [error, setError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [processedSrc, setProcessedSrc] = useState<string>('');
+  const [hasError, setHasError] = useState(false);
+  const [displaySrc, setDisplaySrc] = useState(src);
 
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
-    setError(false);
-    
-    // Automatically process image to remove background
-    removeBackground(src, 40).then(newSrc => {
+    setDisplaySrc(src); // reset immediately when src changes
+    removeWhiteBackground(src).then(newSrc => {
       if (isMounted) {
-        setProcessedSrc(newSrc);
-      }
-    }).catch(() => {
-      if (isMounted) {
-        setProcessedSrc(src);
+        setDisplaySrc(newSrc);
       }
     });
-
     return () => { isMounted = false; };
   }, [src]);
 
@@ -69,29 +60,23 @@ export default function SpriteAnimator({
       )}
 
       <img
-          src={processedSrc || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"}
+          src={displaySrc}
           className={cn(
             "w-full h-full object-contain object-bottom pointer-events-none transition-opacity duration-150 origin-bottom",
             animationClass,
             flipX && "-scale-x-100",
-            isLoading || error || !processedSrc ? "opacity-0" : "opacity-100"
+            hasError ? "opacity-0" : "opacity-100"
           )}
         onLoad={() => {
-          if (processedSrc) {
-            setIsLoading(false);
-            setError(false);
-          }
+          setHasError(false);
         }}
         onError={() => {
-          if (processedSrc) {
-            setError(true);
-            setIsLoading(false);
-          }
+          setHasError(true);
         }}
         alt="sprite"
         draggable={false}
       />
-      {error && (
+      {hasError && (
         <div className="absolute inset-x-1/4 bottom-2 flex h-12 items-end justify-center border-2 border-red-500 bg-red-950/70">
           <div className="mb-1 h-6 w-4 bg-red-400/80" />
         </div>

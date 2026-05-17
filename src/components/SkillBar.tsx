@@ -14,6 +14,39 @@ interface SkillBarProps {
   onSkipSkill: () => void;
 }
 
+function SkillCardVisual({ card, isSelected }: { card: CardType; isSelected: boolean }) {
+  const rawImage = getCardImage(card);
+
+  return (
+    <>
+      <div className="absolute inset-0 opacity-20 pointer-events-none bg-gradient-to-br from-purple-900/50 to-blue-900/50" />
+      <div
+        className="absolute inset-0 opacity-10 pointer-events-none"
+        style={{ backgroundImage: `url(${rawImage})`, backgroundSize: "cover", backgroundPosition: "center", filter: "blur(4px)" }}
+      />
+
+      <div className={cn("relative z-10 w-14 h-20 sm:w-16 sm:h-24 shrink-0 border-2 overflow-hidden bg-gray-800 flex items-center justify-center", isSelected ? "border-amber-400" : "border-gray-700")}>
+        <img 
+          src={rawImage} 
+          alt={CARD_LABELS[card]} 
+          className="w-full h-full object-cover transition-opacity duration-500"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+            (e.target as HTMLImageElement).parentElement!.classList.add('bg-gradient-to-br', 'from-purple-800', 'to-indigo-900');
+          }}
+          onLoad={(e) => {
+            (e.target as HTMLImageElement).style.opacity = '1';
+          }}
+          style={{ opacity: 0 }}
+        />
+        <div className="absolute inset-0 flex items-center justify-center -z-10">
+          <WandSparkles className="size-5 sm:size-6 text-gray-500 opacity-50" />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function SkillBar({
   hand,
   selectedCard,
@@ -75,30 +108,7 @@ export default function SkillBar({
                   : "border-gray-700 bg-gray-900 hover:border-gray-500 hover:translate-x-1"
               )}
             >
-              {/* Card Background Overlay */}
-              <div className="absolute inset-0 opacity-20 pointer-events-none bg-gradient-to-br from-purple-900/50 to-blue-900/50" />
-              <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: `url(${getCardImage(card)})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(4px)' }} />
-              
-              {/* Pixel Card Thumbnail */}
-              <div className={cn("relative z-10 w-14 h-20 sm:w-16 sm:h-24 shrink-0 border-2 overflow-hidden bg-gray-800 flex items-center justify-center", isSelected ? "border-amber-400" : "border-gray-700")}>
-                <img 
-                  src={getCardImage(card)} 
-                  alt={CARD_LABELS[card]} 
-                  className="w-full h-full object-cover transition-opacity duration-500"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                    (e.target as HTMLImageElement).parentElement!.classList.add('bg-gradient-to-br', 'from-purple-800', 'to-indigo-900');
-                  }}
-                  onLoad={(e) => {
-                    (e.target as HTMLImageElement).style.opacity = '1';
-                  }}
-                  style={{ opacity: 0 }}
-                />
-                {/* Fallback Icon if image fails/loads */}
-                <div className="absolute inset-0 flex items-center justify-center -z-10">
-                  <WandSparkles className="size-5 sm:size-6 text-gray-500 opacity-50" />
-                </div>
-              </div>
+              <SkillCardVisual card={card} isSelected={isSelected} />
               
               <div className="min-w-0 flex-1 relative z-10 py-0 sm:py-1">
                 <div className="flex items-center justify-between">

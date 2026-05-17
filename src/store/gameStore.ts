@@ -186,7 +186,7 @@ function prepareManualRepeat(state: GameState, playerId: PlayerId, card: CardTyp
   return {
     ...state,
     phase: "skill" as const,
-    selectedCard: null,
+    selectedCard: card,
     selectedCardAnchor: null,
     pendingDrawCard: null,
     repeatCard: card,
@@ -494,6 +494,11 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
+    if (state.repeatCard) {
+      set({ message: `倒吊人触发中：你正在追加释放${CARD_LABELS[state.repeatCard]}，请直接在棋盘上选择目标。` });
+      return;
+    }
+
     if (!canUseCard(state, playerId, card)) {
       set({ message: `${CARD_LABELS[card]}牌当前没有合法目标。` });
       return;
@@ -635,19 +640,17 @@ export const useGameStore = create<GameStore>((set, get) => ({
       selectedCard: state.selectedCard === card ? null : card,
       selectedCardAnchor: null,
       message:
-        state.repeatCard === card
-          ? `倒吊人触发中：请手动再次释放 1 次${CARD_LABELS[card]}牌。`
-          : card === "obstacle"
-            ? state.players[playerId].randomMovePending
-              ? `愚人效果生效中：本次${CARD_LABELS.obstacle}将朝随机方向释放。点击任意棋盘位置确认。`
-              : `请选择一个空白格，打出${CARD_LABELS.obstacle}牌并放置永久障碍物。`
-            : card === "tower"
-              ? `请选择${CARD_LABELS.tower}牌的方向。系统会沿该方向找到路径上的第一个障碍物，并落到它后方的一格。`
-              : card === "swords8"
-                ? state.players[playerId].randomMovePending
-                  ? `愚人效果生效中：本次${CARD_LABELS.swords8}将朝随机方向释放。点击任意棋盘位置确认。`
-                  : `请选择${CARD_LABELS.swords8}的第 1 个方格，再选与其同线相邻的第 2 个方格，系统会自动补齐第 3 个障碍。`
-                : `请选择一个目标格，系统将通过${CARD_LABELS.storm}牌打乱其周围 6 格内的障碍物。`,
+        card === "obstacle"
+          ? state.players[playerId].randomMovePending
+            ? `愚人效果生效中：本次${CARD_LABELS.obstacle}将朝随机方向释放。点击任意棋盘位置确认。`
+            : `请选择一个空白格，打出${CARD_LABELS.obstacle}牌并放置永久障碍物。`
+          : card === "tower"
+            ? `请选择${CARD_LABELS.tower}牌的方向。系统会沿该方向找到路径上的第一个障碍物，并落到它后方的一格。`
+            : card === "swords8"
+              ? state.players[playerId].randomMovePending
+                ? `愚人效果生效中：本次${CARD_LABELS.swords8}将朝随机方向释放。点击任意棋盘位置确认。`
+                : `请选择${CARD_LABELS.swords8}的第 1 个方格，再选与其同线相邻的第 2 个方格，系统会自动补齐第 3 个障碍。`
+              : `请选择一个目标格，系统将通过${CARD_LABELS.storm}牌打乱其周围 6 格内的障碍物。`,
     });
   },
 
@@ -725,7 +728,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               nextState,
               playerId,
               "obstacle",
-              `${CARD_LABELS.hangedman}触发：你还可以手动再次释放 1 次${CARD_LABELS.obstacle}牌。`,
+              `${CARD_LABELS.hangedman}触发：由于愚人效果，请点击任意位置进行第二次随机释放。`,
             ));
             return;
           }
@@ -757,7 +760,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             nextState,
             playerId,
             "obstacle",
-            `${CARD_LABELS.hangedman}触发：你还可以手动再次释放 1 次${CARD_LABELS.obstacle}牌。`,
+            `${CARD_LABELS.hangedman}触发：请直接在棋盘上再次选择目标，追加释放 1 次${CARD_LABELS.obstacle}牌。`,
           ));
           return;
         }
@@ -792,7 +795,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             nextState,
             playerId,
             "storm",
-            `${CARD_LABELS.hangedman}触发：你还可以手动再次释放 1 次${CARD_LABELS.storm}牌。`,
+            `${CARD_LABELS.hangedman}触发：请直接在棋盘上再次选择目标，追加释放 1 次${CARD_LABELS.storm}牌。`,
           ));
           return;
         }
@@ -829,7 +832,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             nextState,
             playerId,
             "tower",
-            `${CARD_LABELS.hangedman}触发：你还可以手动再次释放 1 次${CARD_LABELS.tower}牌。`,
+            `${CARD_LABELS.hangedman}触发：请直接在棋盘上再次选择目标，追加释放 1 次${CARD_LABELS.tower}牌。`,
           ));
           return;
         }
@@ -870,7 +873,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
               nextState,
               playerId,
               "swords8",
-              `${CARD_LABELS.hangedman}触发：你还可以手动再次释放 1 次${CARD_LABELS.swords8}。`,
+              `${CARD_LABELS.hangedman}触发：由于愚人效果，请点击任意位置进行第二次随机释放。`,
             ));
             return;
           }
@@ -917,7 +920,7 @@ export const useGameStore = create<GameStore>((set, get) => ({
             nextState,
             playerId,
             "swords8",
-            `${CARD_LABELS.hangedman}触发：你还可以手动再次释放 1 次${CARD_LABELS.swords8}。`,
+            `${CARD_LABELS.hangedman}触发：请直接在棋盘上再次选择目标，追加释放 1 次${CARD_LABELS.swords8}。`,
           ));
           return;
         }
