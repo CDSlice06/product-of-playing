@@ -11,9 +11,10 @@ node_modules
 dist
 dist-ssr
 *.local
+.vercel
+.trae
 
 # Editor directories and files
-.trae
 .vscode/*
 !.vscode/extensions.json
 .idea

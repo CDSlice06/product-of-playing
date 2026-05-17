@@ -1,38 +1,357 @@
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap");
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  font-family: "Outfit", "Segoe UI", sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color: #f8fafc;
-  background: #020617;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    height: 100%;
+  }
+
+  :root {
+    --ink: #1a1a1a;
+  }
+  
+  body {
+    background-color: #000;
+    color: #fff;
+    font-family: 'Press Start 2P', 'Courier New', Courier, monospace;
+    image-rendering: pixelated;
+    overscroll-behavior: none;
+  }
 }
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-  background:
-    radial-gradient(circle at top, rgba(245, 158, 11, 0.12), transparent 20%),
-    linear-gradient(180deg, #020617 0%, #0f172a 100%);
+@layer components {
+  .app-shell {
+    min-height: 100dvh;
+    min-width: 100vw;
+  }
+
+  .app-page-layout {
+    width: 100%;
+    height: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+    padding: 0.75rem;
+    display: flex;
+    gap: 0.75rem;
+    min-height: 0;
+  }
+
+  .app-scene-panel {
+    display: none;
+  }
+
+  .app-side-panel {
+    width: 100%;
+    min-height: 0;
+  }
+
+  .battle-layout {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+    width: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
+
+  .battle-sidebar {
+    width: 100%;
+    min-height: 14rem;
+    max-height: 34dvh;
+  }
+
+  .hex-board-container {
+    --hex-w: 44px;
+    --hex-h: 50px;
+    --hex-gap: 2px;
+    --hex-mt: -12px;
+    --hex-ml: 23px;
+    --obs-size: 44px;
+    --player-size: 60px;
+    --player-bottom: 8px;
+  }
+
+  @media (min-width: 768px) {
+    .app-page-layout {
+      padding: 1rem;
+      gap: 1rem;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .hex-board-container {
+      --hex-w: 54px;
+      --hex-h: 62px;
+      --hex-mt: -16px;
+      --hex-ml: 28px;
+      --obs-size: 54px;
+      --player-size: 76px;
+      --player-bottom: 12px;
+    }
+  }
+
+  @media (min-width: 1280px) {
+    .hex-board-container {
+      --hex-w: 64px;
+      --hex-h: 74px;
+      --hex-mt: -18px;
+      --hex-ml: 33px;
+      --obs-size: 64px;
+      --player-size: 90px;
+      --player-bottom: 16px;
+    }
+  }
+
+  @media (orientation: landscape) and (max-width: 1024px) {
+    .app-page-layout {
+      padding: 0.75rem;
+      gap: 0.75rem;
+    }
+
+    .app-scene-panel {
+      display: flex;
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .app-side-panel {
+      width: min(28rem, 42vw);
+      flex-shrink: 0;
+    }
+
+    .battle-layout {
+      flex-direction: row;
+      padding: 0.5rem 0.75rem 0.75rem;
+      gap: 0.75rem;
+    }
+
+    .battle-sidebar {
+      width: min(22rem, 35vw);
+      max-height: none;
+      min-height: 0;
+      flex-shrink: 0;
+    }
+
+    .hex-board-container {
+      --hex-w: 40px;
+      --hex-h: 46px;
+      --hex-gap: 2px;
+      --hex-mt: -11px;
+      --hex-ml: 21px;
+      --obs-size: 40px;
+      --player-size: 54px;
+      --player-bottom: 8px;
+    }
+  }
+
+  .hex-cell {
+    width: var(--hex-w);
+    height: var(--hex-h);
+  }
+  .hex-row {
+    gap: var(--hex-gap);
+  }
+  .hex-mt {
+    margin-top: var(--hex-mt);
+  }
+  .hex-obs {
+    width: var(--obs-size);
+    height: var(--obs-size);
+  }
+  .hex-player {
+    width: var(--player-size);
+    height: var(--player-size);
+    bottom: var(--player-bottom);
+  }
 }
 
-#root {
-  min-height: 100vh;
+@layer utilities {
+  .pixel-scrollbar::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  .pixel-scrollbar::-webkit-scrollbar-track {
+    background: #2a2a2a;
+    border: 2px solid #1a1a1a;
+  }
+  .pixel-scrollbar::-webkit-scrollbar-thumb {
+    background: #555;
+    border: 2px solid #1a1a1a;
+  }
+  .pixel-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #777;
+  }
+  
+  .text-shadow-pixel {
+    text-shadow: 2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
+  }
 }
 
-.font-display {
-  font-family: "Cormorant Garamond", Georgia, serif;
+.mobile-orientation-guard {
+  display: none;
 }
 
-.hex-cell {
-  clip-path: polygon(50% 2%, 94% 26%, 94% 74%, 50% 98%, 6% 74%, 6% 26%);
+.mobile-orientation-card {
+  width: min(88vw, 24rem);
+  padding: 1.5rem;
+  text-align: center;
+  background: rgba(17, 24, 39, 0.96);
+}
+
+.mobile-orientation-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  transform: rotate(90deg);
+}
+
+@media (orientation: portrait) and (max-width: 900px) {
+  .mobile-orientation-guard {
+    position: fixed;
+    inset: 0;
+    z-index: 120;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.25rem;
+    background:
+      radial-gradient(circle at top, rgba(37, 99, 235, 0.22), transparent 28%),
+      linear-gradient(180deg, rgba(2, 6, 23, 0.96), rgba(0, 0, 0, 0.98));
+    backdrop-filter: blur(6px);
+  }
+}
+
+/* True Pixel-Snap Idle Animation (Mimics Soul Knight without real sprite sheets) */
+.sprite-container {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+.sprite-sheet {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transform-origin: bottom center;
+  /* steps(1) forces instant snapping instead of smooth tweening, removing the "floating" feel */
+  animation: pixel-snap-idle 0.6s steps(1) infinite;
+  mix-blend-mode: screen; /* Removes pure black background */
+  image-rendering: pixelated;
+}
+
+@keyframes pixel-snap-idle {
+  0%   { transform: translateY(0); }
+  25%  { transform: translateY(-3px); }
+  50%  { transform: translateY(0); }
+  75%  { transform: translateY(2px); }
+  100% { transform: translateY(0); }
+}
+
+/* Pixel UI Standard Panel */
+.pixel-panel {
+  background-color: #111827;
+  border: 4px solid #1f2937;
+  box-shadow: 4px 4px 0px rgba(0,0,0,0.8);
+  image-rendering: pixelated;
+}
+
+@keyframes pixel-breathe {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(4px);
+  }
+}
+
+.animate-pixel-breathe {
+  animation: pixel-breathe 1s infinite steps(2);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  10%, 30%, 50%, 70%, 90% { transform: translate(-4px, -4px); }
+  20%, 40%, 60%, 80% { transform: translate(4px, 4px); }
+}
+
+.animate-shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+@keyframes pixel-pulse {
+  0%, 100% {
+    transform: scale(1.5) translateY(0);
+    filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.8)) brightness(1);
+  }
+  50% {
+    transform: scale(1.55) translateY(-2px);
+    filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.8)) brightness(1.2);
+  }
+}
+
+.animate-pixel-pulse {
+  animation: pixel-pulse 1.2s infinite steps(2);
+}
+
+@keyframes shadow-breathe {
+  0%, 100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateX(-50%) scale(0.85);
+    opacity: 0.4;
+  }
+}
+
+.animate-shadow-breathe {
+  animation: shadow-breathe 1s infinite steps(2);
+}
+
+@keyframes shadow-float {
+  0%, 100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateX(-50%) scale(0.7);
+    opacity: 0.3;
+  }
+}
+
+.animate-shadow-float {
+  animation: shadow-float 3s ease-in-out infinite;
+}
+
+/* Obstacle writhing animation */
+@keyframes vine-writhing {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  25% { transform: translateY(-3px) rotate(1deg) scale(1.02); }
+  50% { transform: translateY(0) rotate(0deg) scale(1); }
+  75% { transform: translateY(2px) rotate(-1deg) scale(0.98); }
+}
+
+.animate-vine-writhing {
+  animation: vine-writhing 1.5s steps(2) infinite;
 }

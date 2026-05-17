@@ -31,12 +31,12 @@ export default function Board({
         : null;
 
   return (
-    <div className="overflow-x-auto rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.45)] backdrop-blur-xl">
+    <div className="app-surface overflow-x-auto rounded-[2rem] border border-white/10 bg-slate-950/70 p-4 shadow-[0_30px_80px_rgba(15,23,42,0.45)] backdrop-blur-xl">
       <div className="mx-auto w-max">
         {cells.map((row, rowIndex) => (
           <div
             key={`row-${rowIndex}`}
-            className="flex gap-1.5"
+            className={rowIndex % 2 === 0 ? "flex gap-1.5" : "board-row-offset flex gap-1.5"}
             style={{ marginLeft: rowIndex % 2 === 0 ? 0 : 30 }}
           >
             {row.map((position) => {

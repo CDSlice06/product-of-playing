@@ -1,4 +1,4 @@
-import type { GameMode, GameState, PlayerId, Position } from "@/types/game";
+import type { AiDifficulty, FateOutcome, GameMode, GameState, PlayerId, Position } from "@/types/game";
 
 export const BOARD_SIZE = 10;
 export const MAX_HAND_SIZE = 4;
@@ -24,6 +24,18 @@ export const PLAYER_LABELS: Record<PlayerId, string> = {
   player2: "秘术师",
 };
 
+export const AI_DIFFICULTY_LABELS: Record<AiDifficulty, string> = {
+  easy: "简单",
+  medium: "中等",
+  hard: "困难",
+};
+
+export const AI_DIFFICULTY_DESCRIPTIONS: Record<AiDifficulty, string> = {
+  easy: "优先基础移动与明显收益，偶尔错过更深层机会。",
+  medium: "会权衡封路、保命、出牌时机，并开始预判对手下一回合反击。",
+  hard: "会主动预判你的反制路线，优先寻找压制、脱困、连招与直接将死窗口。",
+};
+
 export function getPlayerName(playerId: PlayerId, gameMode: GameMode) {
   if (playerId === "player2" && gameMode === "pve") {
     return "命运傀儡";
@@ -39,6 +51,9 @@ export const CARD_LABELS = {
   tower: "16号正位高塔",
   fool: "0号愚人",
   swords8: "宝剑八",
+  temperance: "14号节制",
+  hangedman: "12号倒吊人",
+  fate: "10号命运",
 };
 
 export const CARD_DESCRIPTIONS = {
@@ -46,8 +61,11 @@ export const CARD_DESCRIPTIONS = {
   chalice: "与敌方交换位置",
   storm: "打乱目标格周围 6 格内的障碍物位置，不会移动玩家",
   tower: "沿任意方向找到路径上的第一个障碍物，并落到其后方一格",
-  fool: "令对方下一次移动失控，并随机朝某个合法方向移动",
+  fool: "令对方下一次移动失控；若使用18号月亮或宝剑八，也会朝随机方向释放",
   swords8: "选择一条连续直线的三个方格，一次性放置 3 个障碍物",
+  temperance: "随机清除对方 1 张手牌；若触发倒吊人，会连续清除 2 张",
+  hangedman: "打出时没有直接效果；持有且手牌大于 3 张时，会让多数塔罗牌触发双倍效果",
+  fate: "出现太阳、正位死神、女皇三张命运牌，双方各抽 1 次，使用者先抽",
 };
 
 export const CARD_MEANINGS = {
@@ -57,6 +75,21 @@ export const CARD_MEANINGS = {
   tower: "寓意：突变冲击、破局跃迁与旧秩序崩塌",
   fool: "寓意：无序启程、失控试探与命运偏转",
   swords8: "寓意：束缚成阵、压迫收紧与封锁成形",
+  temperance: "寓意：平衡打破、收束裁剪与资源净化",
+  hangedman: "寓意：停滞倒悬、代价翻倍与命运反转",
+  fate: "寓意：轮盘转动、吉凶同席与未知裁决",
+};
+
+export const FATE_OUTCOME_LABELS: Record<FateOutcome, string> = {
+  sun: "太阳",
+  death: "正位死神",
+  empress: "女皇",
+};
+
+export const FATE_OUTCOME_DESCRIPTIONS: Record<FateOutcome, string> = {
+  sun: "清空自身周围 6 格上的障碍物；若周围没有障碍物，则不会生效。",
+  death: "自身周围会生成一圈障碍物，但仍可继续完成当前回合，避免被立即判负。",
+  empress: "什么也不会发生。",
 };
 
 export const SPAWN_POINTS: Record<PlayerId, Position> = {

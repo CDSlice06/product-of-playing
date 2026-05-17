@@ -22,15 +22,15 @@ export default function HexCell({
 }: HexCellProps) {
   const occupantNode =
     occupant === "player1" ? (
-      <div className="flex size-9 items-center justify-center rounded-full border border-amber-200/60 bg-amber-300/20 text-amber-100 shadow-[0_0_24px_rgba(245,158,11,0.35)]">
+      <div className="hex-occupant flex size-9 items-center justify-center rounded-full border border-amber-200/60 bg-amber-300/20 text-amber-100 shadow-[0_0_24px_rgba(245,158,11,0.35)]">
         <UserRound className="size-4" />
       </div>
     ) : occupant === "player2" ? (
-      <div className="flex size-9 items-center justify-center rounded-full border border-cyan-200/60 bg-cyan-300/20 text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.3)]">
+      <div className="hex-occupant flex size-9 items-center justify-center rounded-full border border-cyan-200/60 bg-cyan-300/20 text-cyan-100 shadow-[0_0_24px_rgba(34,211,238,0.3)]">
         <Sparkles className="size-4" />
       </div>
     ) : occupant === "obstacle" ? (
-      <div className="flex size-8 items-center justify-center rounded-full border border-rose-200/40 bg-rose-950/70 text-rose-200">
+      <div className="hex-occupant hex-occupant--obstacle flex size-8 items-center justify-center rounded-full border border-rose-200/40 bg-rose-950/70 text-rose-200">
         <Ban className="size-4" />
       </div>
     ) : null;
@@ -51,17 +51,17 @@ export default function HexCell({
         highlight === "danger" && "ring-2 ring-rose-400/80",
       )}
     >
-      <span className="absolute left-1 top-1 text-[10px] text-slate-400">
+      <span className="hex-coordinate absolute left-1 top-1 text-[10px] text-slate-400">
         {position.x + 1}.{position.y + 1}
       </span>
       {highlight === "storm" && (
-        <Waves className="pointer-events-none absolute bottom-1 right-1 size-3 text-cyan-300/80" />
+        <Waves className="hex-corner-icon pointer-events-none absolute bottom-1 right-1 size-3 text-cyan-300/80" />
       )}
       {highlight === "tower" && (
-        <Landmark className="pointer-events-none absolute bottom-1 right-1 size-3 text-violet-300/80" />
+        <Landmark className="hex-corner-icon pointer-events-none absolute bottom-1 right-1 size-3 text-violet-300/80" />
       )}
       {highlight === "swords8" && (
-        <Swords className="pointer-events-none absolute bottom-1 right-1 size-3 text-rose-300/80" />
+        <Swords className="hex-corner-icon pointer-events-none absolute bottom-1 right-1 size-3 text-rose-300/80" />
       )}
       {occupantNode}
     </button>

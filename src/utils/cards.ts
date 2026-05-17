@@ -1,4 +1,4 @@
-import type { CardType, GameState, PlayerId, Position } from "@/types/game";
+import type { CardType, FateOutcome, GameState, PlayerId, Position } from "@/types/game";
 import {
   HEX_DIRECTION_COUNT,
   getHexDirectionStep,
@@ -13,13 +13,18 @@ import {
   toPositionKey,
 } from "@/utils/board";
 
+// 以 100 份权重配置抽牌概率，方便后续继续微调。
+// 当前设计里 18号月亮 与 宝剑八明显偏高，同时保留新加入的三张牌。
 const DRAW_TABLE: CardType[] = [
-  ...Array.from({ length: 45 }, () => "obstacle" as const),
-  ...Array.from({ length: 5 }, () => "chalice" as const),
-  ...Array.from({ length: 10 }, () => "storm" as const),
-  ...Array.from({ length: 5 }, () => "tower" as const),
-  ...Array.from({ length: 10 }, () => "fool" as const),
-  ...Array.from({ length: 25 }, () => "swords8" as const),
+  ...Array.from({ length: 30 }, () => "obstacle" as const),
+  ...Array.from({ length: 24 }, () => "swords8" as const),
+  ...Array.from({ length: 9 }, () => "fool" as const),
+  ...Array.from({ length: 8 }, () => "storm" as const),
+  ...Array.from({ length: 6 }, () => "chalice" as const),
+  ...Array.from({ length: 6 }, () => "tower" as const),
+  ...Array.from({ length: 6 }, () => "temperance" as const),
+  ...Array.from({ length: 6 }, () => "hangedman" as const),
+  ...Array.from({ length: 5 }, () => "fate" as const),
 ];
 
 interface StormEntity {
@@ -121,6 +126,86 @@ export function canUseTower(state: GameState, playerId: PlayerId) {
   });
 }
 
+export function getFoolObstacleTargets(state: GameState, playerId: PlayerId) {
+  const player = state.players[playerId];
+  const targets: Position[] = [];
+
+  for (let directionIndex = 0; directionIndex < HEX_DIRECTION_COUNT; directionIndex += 1) {
+    for (let distance = 1; distance < state.boardSize; distance += 1) {
+      const target = getHexDirectionStep(player.position, directionIndex, distance);
+      if (!target || !isInsideBoard(target, state.boardSize)) {
+        break;
+      }
+
+      if (isCardTargetableCell(state, target)) {
+        targets.push(target);
+        break;
+      }
+    }
+  }
+
+  return targets;
+}
+
+export function getFoolSwordEightPlacements(state: GameState, playerId: PlayerId) {
+  const player = state.players[playerId];
+  const placements: Array<{ start: Position; second: Position }> = [];
+
+  for (let directionIndex = 0; directionIndex < HEX_DIRECTION_COUNT; directionIndex += 1) {
+    for (let distance = 1; distance < state.boardSize; distance += 1) {
+      const start = getHexDirectionStep(player.position, directionIndex, distance);
+      const second = getHexDirectionStep(player.position, directionIndex, distance + 1);
+      const third = getHexDirectionStep(player.position, directionIndex, distance + 2);
+
+      if (!start || !second || !third) {
+        break;
+      }
+
+      if (
+        isInsideBoard(start, state.boardSize) &&
+        isInsideBoard(second, state.boardSize) &&
+        isInsideBoard(third, state.boardSize) &&
+        isCardTargetableCell(state, start) &&
+        isCardTargetableCell(state, second) &&
+        isCardTargetableCell(state, third)
+      ) {
+        placements.push({ start, second });
+        break;
+      }
+    }
+  }
+
+  return placements;
+}
+
+export function pickRandomFoolObstacleTarget(
+  state: GameState,
+  playerId: PlayerId,
+  random = Math.random,
+) {
+  const targets = getFoolObstacleTargets(state, playerId);
+  if (targets.length === 0) {
+    return null;
+  }
+
+  const index = Math.floor(random() * targets.length);
+  return targets[index] ?? null;
+}
+
+export function pickRandomFoolSwordEightPlacement(
+  state: GameState,
+  playerId: PlayerId,
+  random = Math.random,
+) {
+  const placements = getFoolSwordEightPlacements(state, playerId);
+  if (placements.length === 0) {
+    return null;
+  }
+
+  const index = Math.floor(random() * placements.length);
+  return placements[index] ?? null;
+}
+
 export function getSwordEightSecondCells(state: GameState, start: Position) {
   if (!isCardTargetableCell(state, start)) {
     return [];
@@ -163,13 +248,20 @@ export function canUseSwordEight(state: GameState) {
 }
 
 export function canUseCard(state: GameState, playerId: PlayerId, card: CardType) {
-  if (!state.players[playerId].hand.includes(card)) {
+  const hasRepeatPrivilege = state.currentPlayer === playerId && state.repeatCard === card;
+  if (state.currentPlayer === playerId && state.repeatCard && state.repeatCard !== card) {
+    return false;
+  }
+
+  if (!state.players[playerId].hand.includes(card) && !hasRepeatPrivilege) {
     return false;
   }
 
   switch (card) {
     case "obstacle":
-      return canUseObstacle(state);
+      return state.players[playerId].randomMovePending
+        ? getFoolObstacleTargets(state, playerId).length > 0
+        : canUseObstacle(state);
     case "chalice":
       return true;
     case "storm":
@@ -179,10 +271,61 @@ export function canUseCard(state: GameState, playerId: PlayerId, card: CardType)
     case "fool":
       return true;
     case "swords8":
-      return canUseSwordEight(state);
+      return state.players[playerId].randomMovePending
+        ? getFoolSwordEightPlacements(state, playerId).length > 0
+        : canUseSwordEight(state);
+    case "temperance":
+      return state.players[otherPlayer(playerId)].hand.length > 0;
+    case "hangedman":
+    case "fate":
+      return true;
     default:
       return false;
   }
+}
+
+export function getRandomHandRemovals(hand: CardType[], count: number, random = Math.random) {
+  const nextHand = [...hand];
+  const removedCards: CardType[] = [];
+
+  for (let index = 0; index < count && nextHand.length > 0; index += 1) {
+    const randomIndex = Math.floor(random() * nextHand.length);
+    const [removed] = nextHand.splice(randomIndex, 1);
+    if (removed) {
+      removedCards.push(removed);
+    }
+  }
+
+  return { nextHand, removedCards };
+}
+
+export function getRandomFateChoices(random = Math.random): FateOutcome[] {
+  return shuffleItems<FateOutcome>(["sun", "death", "empress"], random);
+}
+
+export function clearAdjacentObstacles(state: GameState, center: Position) {
+  const ring = getStormRing(center, state.boardSize);
+  return state.obstacles.filter((obstacle) => !ring.some((cell) => isSamePosition(cell, obstacle)));
+}
+
+export function surroundWithObstacles(state: GameState, center: Position) {
+  const ring = getStormRing(center, state.boardSize);
+  const nextObstacles = [...state.obstacles];
+  const seen = new Set(nextObstacles.map(toPositionKey));
+
+  ring.forEach((cell) => {
+    if (!isCellEmpty(state, cell)) {
+      return;
+    }
+
+    const key = toPositionKey(cell);
+    if (!seen.has(key)) {
+      seen.add(key);
+      nextObstacles.push(cell);
+    }
+  });
+
+  return nextObstacles;
 }
 
 export function placeObstacle(state: GameState, target: Position) {

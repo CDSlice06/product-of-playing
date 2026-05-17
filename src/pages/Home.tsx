@@ -1,14 +1,22 @@
 import { ChevronRight, MoonStar, Sparkles, TimerReset } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useGameStore } from "@/store/gameStore";
+import type { AiDifficulty } from "@/types/game";
+import { AI_DIFFICULTY_DESCRIPTIONS, AI_DIFFICULTY_LABELS } from "@/utils/board";
 
 export default function Home() {
   const navigate = useNavigate();
   const setGameMode = useGameStore((state) => state.setGameMode);
+  const aiDifficulty = useGameStore((state) => state.aiDifficulty);
+  const setAiDifficulty = useGameStore((state) => state.setAiDifficulty);
 
   const handleStartBattle = (mode: "pvp" | "pve") => {
     setGameMode(mode);
     navigate("/battle");
+  };
+
+  const handleDifficultyChange = (difficulty: AiDifficulty) => {
+    setAiDifficulty(difficulty);
   };
 
   return (
@@ -41,7 +49,7 @@ export default function Home() {
                   onClick={() => handleStartBattle("pve")}
                   className="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-6 py-3 text-sm tracking-[0.18em] text-cyan-50 transition hover:-translate-y-0.5 hover:bg-cyan-300/15"
                 >
-                  人机对战
+                  人机对战 · {AI_DIFFICULTY_LABELS[aiDifficulty]}
                   <ChevronRight className="size-4" />
                 </button>
                 <a
@@ -54,6 +62,29 @@ export default function Home() {
             </div>
 
             <div className="grid gap-4">
+              <div className="rounded-[2rem] border border-cyan-300/15 bg-cyan-300/5 p-5">
+                <div className="flex items-center gap-3 text-cyan-100">
+                  <Sparkles className="size-5" />
+                  <span className="text-sm uppercase tracking-[0.25em]">AI难度</span>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {(["easy", "medium", "hard"] as AiDifficulty[]).map((difficulty) => (
+                    <button
+                      key={difficulty}
+                      type="button"
+                      onClick={() => handleDifficultyChange(difficulty)}
+                      className={`rounded-full border px-4 py-2 text-sm transition ${
+                        aiDifficulty === difficulty
+                          ? "border-cyan-300/60 bg-cyan-300/20 text-cyan-50"
+                          : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+                      }`}
+                    >
+                      {AI_DIFFICULTY_LABELS[difficulty]}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-3 text-sm text-slate-300">{AI_DIFFICULTY_DESCRIPTIONS[aiDifficulty]}</p>
+              </div>
               <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5">
                 <div className="flex items-center gap-3 text-amber-100">
                   <MoonStar className="size-5" />
@@ -73,7 +104,7 @@ export default function Home() {
                   <MoonStar className="size-5" />
                   <span className="text-sm uppercase tracking-[0.25em]">对战模式</span>
                 </div>
-                <p className="mt-3 text-slate-300">支持本地双人轮流对战，也支持与 AI 对手“命运傀儡”进行单人博弈。</p>
+                <p className="mt-3 text-slate-300">支持本地双人轮流对战，也支持与 AI 对手“命运傀儡”进行单人博弈，并可切换简单、中等、困难三档难度。</p>
               </div>
               <div className="rounded-[2rem] border border-white/10 bg-white/5 p-5">
                 <div className="flex items-center gap-3 text-rose-100">

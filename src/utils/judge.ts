@@ -42,6 +42,10 @@ export function isLegalMove(state: GameState, playerId: PlayerId, target: Positi
 }
 
 export function canPlayerAct(state: GameState, playerId: PlayerId) {
+  if (state.players[playerId].deathGraceActive) {
+    return true;
+  }
+
   const legalMoves = getLegalMoves(state, playerId);
   if (legalMoves.length > 0) {
     return true;
@@ -70,11 +74,39 @@ export function canCardRestoreMobility(state: GameState, playerId: PlayerId, car
       );
     case "tower":
       return true;
+    case "temperance":
+    case "hangedman":
+    case "fate":
     case "obstacle":
     case "fool":
+    case "swords8":
     default:
       return false;
   }
+}
+
+function getTowerLandingForDirection(state: GameState, playerId: PlayerId, directionIndex: number) {
+  const player = state.players[playerId];
+  let distance = 1;
+  let cursor = getHexDirectionStep(player.position, directionIndex, distance);
+
+  while (cursor && isInsideBoard(cursor, state.boardSize)) {
+    const occupant = getOccupantAt(state, cursor);
+
+    if (occupant === "obstacle") {
+      const landing = getHexDirectionStep(player.position, directionIndex, distance + 1);
+      return landing && isInsideBoard(landing, state.boardSize) && isCellEmpty(state, landing) ? landing : null;
+    }
+
+    if (occupant === "player1" || occupant === "player2") {
+      return null;
+    }
+
+    distance += 1;
+    cursor = getHexDirectionStep(player.position, directionIndex, distance);
+  }
+
+  return null;
 }
 
 export function getTowerMoves(state: GameState, playerId: PlayerId) {
@@ -85,28 +117,29 @@ export function getTowerMoves(state: GameState, playerId: PlayerId) {
   }
 
   return Array.from({ length: HEX_DIRECTION_COUNT }, (_, directionIndex) => {
-    let distance = 1;
-    let cursor = getHexDirectionStep(player.position, directionIndex, distance);
-
-    while (cursor && isInsideBoard(cursor, state.boardSize)) {
-      const occupant = getOccupantAt(state, cursor);
-
-      if (occupant === "obstacle") {
-        const landing = getHexDirectionStep(player.position, directionIndex, distance + 1);
-
-        return landing && isInsideBoard(landing, state.boardSize) && isCellEmpty(state, landing) ? landing : null;
-      }
-
-      if (occupant === "player1" || occupant === "player2") {
-        return null;
-      }
-
-      distance += 1;
-      cursor = getHexDirectionStep(player.position, directionIndex, distance);
-    }
-
-    return null;
+    return getTowerLandingForDirection(state, playerId, directionIndex);
   }).filter((target): target is Position => target !== null);
+}
+
+export function getTowerMoveFromDirectionSelection(state: GameState, playerId: PlayerId, target: Position) {
+  const player = state.players[playerId];
+
+  for (let directionIndex = 0; directionIndex < HEX_DIRECTION_COUNT; directionIndex += 1) {
+    for (let distance = 1; distance < state.boardSize; distance += 1) {
+      const cursor = getHexDirectionStep(player.position, directionIndex, distance);
+      if (!cursor || !isInsideBoard(cursor, state.boardSize)) {
+        break;
+      }
+
+      if (!isSamePosition(cursor, target)) {
+        continue;
+      }
+
+      return getTowerLandingForDirection(state, playerId, directionIndex);
+    }
+  }
+
+  return null;
 }
 
 export function resolveWinner(state: GameState, actor: PlayerId): ResultState | null {

@@ -8,6 +8,8 @@ interface ResultModalProps {
   players: Record<PlayerId, PlayerState>;
   onReplay: () => void;
   onBackHome: () => void;
+  replayLabel?: string;
+  backHomeLabel?: string;
 }
 
 export default function ResultModal({
@@ -17,6 +19,8 @@ export default function ResultModal({
   players,
   onReplay,
   onBackHome,
+  replayLabel = "再来一局",
+  backHomeLabel = "返回主菜单",
 }: ResultModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-md">
@@ -62,7 +66,7 @@ export default function ResultModal({
             className="inline-flex items-center gap-2 rounded-full border border-amber-300/30 bg-amber-300/10 px-5 py-3 text-sm text-amber-50 transition hover:bg-amber-300/15"
           >
             <RotateCcw className="size-4" />
-            再来一局
+            {replayLabel}
           </button>
           <button
             type="button"
@@ -70,7 +74,7 @@ export default function ResultModal({
             className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm text-slate-100 transition hover:bg-white/10"
           >
             <Undo2 className="size-4" />
-            返回主菜单
+            {backHomeLabel}
           </button>
         </div>
       </div>
