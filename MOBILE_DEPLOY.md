@@ -1,34 +1,29 @@
-# 命运之战外层壳页部署说明
+# 手机访问与部署说明
 
-## 当前结构
-- 根入口 `/`：外层网页壳页，负责手机适配、首屏加载、`iframe` 承载
-- 内层入口 `/game/`：现有游戏本体，保持原有业务逻辑与视觉实现
-- 构建产物：
-  - `dist/index.html`
-  - `dist/game/index.html`
+## 本地调试
+- 电脑执行 `npm.cmd run dev`
+- 电脑和手机在同一局域网时，手机打开 `http://电脑内网IP:5173/#/`
+- 如果手机访问失败，先检查 Windows 防火墙是否放行 `5173` 端口
 
-## 本地验证
-1. 执行 `npm run check`
-2. 执行 `npm run test`
-3. 执行 `npm run build`
-4. 执行 `npm run preview -- --host 0.0.0.0 --port 4178 --strictPort`
+## Cloudflare Pages 静态交付
+- 执行 `npm.cmd run build:cloudflare`
+- 生成目录为 `cloudflare-pages-dist`
+- 目录根部是纯静态外层壳页，游戏本体原样位于 `cloudflare-pages-dist/game/`
+- 所有页面、脚本、样式和图标均使用相对路径，可直接上传到 Cloudflare Pages
 
-验证地址：
-- 外层壳页：`http://localhost:4178/`
-- 游戏本体：`http://localhost:4178/game/`
+## Cloudflare Pages 配置
+- Framework preset 选 `None`
+- Build command 留空，或按需填写 `npm run build:cloudflare`
+- Build output directory 填 `cloudflare-pages-dist`
+- 如果你是直接上传静态目录，上传 `cloudflare-pages-dist` 全部内容即可
 
-## Vercel 配置
-- 当前仓库已包含 `vercel.json`
-- 构建命令：`npm run build`
-- 输出目录：`dist`
-- `rewrites` 已补充 `/game` 与 `/game/` 到 `/game/index.html`
+## 必配环境
+- 生产环境变量仍需在 Cloudflare Pages 中配置：
+  - `VITE_SUPABASE_URL`
+  - `VITE_SUPABASE_ANON_KEY`
+- 同时在 Supabase 控制台把 Cloudflare Pages 域名加入站点 URL 和允许重定向列表
 
-## 线上更新方式
-1. 本地修改完成后推送到 `main`
-2. Vercel 自动拉取并重新构建
-3. 访问根域名即可进入外层壳页
-
-## 设计原则
-- 不改现有游戏玩法、界面、样式、功能
-- 仅新增外层壳页、嵌入入口、部署配置与移动端兼容层
-- 全站保持相对路径，避免绝对盘符路径泄露
+## 访问说明
+- 推荐分享根地址 `/`，外层壳页会自动加载 `./game/index.html#/auth`
+- 手机和电脑都可直接通过浏览器打开，无需下载任何文件
+- 建议手机横屏游玩，棋盘与手牌区域更完整
