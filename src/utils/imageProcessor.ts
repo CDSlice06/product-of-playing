@@ -2,6 +2,9 @@ const cache = new Map<string, string>();
 const pending = new Map<string, Promise<string>>();
 
 export async function removeWhiteBackground(src: string): Promise<string> {
+  if (typeof window !== "undefined" && window.location.protocol === "file:") {
+    return src;
+  }
   if (src.startsWith('data:image/svg')) return src;
   if (cache.has(src)) return cache.get(src)!;
   if (pending.has(src)) return pending.get(src)!;

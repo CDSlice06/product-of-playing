@@ -44,6 +44,9 @@ export default defineConfig({
   },
   build: {
     sourcemap: 'hidden',
+    // Inline local sprite PNGs into the bundle so exported single HTML
+    // does not depend on external asset files when opened directly.
+    assetsInlineLimit: 10 * 1024 * 1024,
   },
   plugins: [
     react({
