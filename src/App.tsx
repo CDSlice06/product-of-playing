@@ -18,7 +18,7 @@ function RootRedirect() {
 
   if (!ready) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-slate-950 px-4 text-center text-slate-100">
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
         正在连接星盘大厅...
       </main>
     );
@@ -33,7 +33,7 @@ function RequireSession({ children }: { children: JSX.Element }) {
 
   if (!ready) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-slate-950 px-4 text-center text-slate-100">
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
         正在连接星盘大厅...
       </main>
     );
@@ -52,7 +52,7 @@ function RequireAuthenticated({ children }: { children: JSX.Element }) {
 
   if (!ready) {
     return (
-      <main className="flex min-h-dvh items-center justify-center bg-slate-950 px-4 text-center text-slate-100">
+      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
         正在连接星盘大厅...
       </main>
     );

@@ -19,7 +19,7 @@ export default function Lobby() {
   const isGuest = mode === "guest" || profile?.isGuest;
 
   useEffect(() => {
-    document.title = "命运之战 | 游戏大厅";
+    document.title = "命运之战 | 像素大厅";
   }, []);
 
   const handleGuestPve = () => {

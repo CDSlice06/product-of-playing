@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { ChevronRight, MoonStar, Sparkles, TimerReset } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useGameStore } from "@/store/gameStore";
@@ -11,10 +10,6 @@ export default function Home() {
   const aiDifficulty = useGameStore((state) => state.aiDifficulty);
   const setAiDifficulty = useGameStore((state) => state.setAiDifficulty);
 
-  useEffect(() => {
-    document.title = "命运之战 | 本地对战";
-  }, []);
-
   const handleStartBattle = (mode: "pvp" | "pve") => {
     setGameMode(mode);
     navigate("/battle");
@@ -25,8 +20,8 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-dvh overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.2),_transparent_28%),radial-gradient(circle_at_80%_20%,_rgba(34,211,238,0.14),_transparent_24%),linear-gradient(180deg,_#020617_0%,_#0f172a_56%,_#111827_100%)] px-4 py-6 text-slate-50 sm:py-8">
-      <div className="mx-auto flex min-h-[calc(100dvh-3rem)] max-w-6xl flex-col justify-between gap-6 sm:min-h-[calc(100dvh-4rem)] sm:gap-8">
+    <main className="min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(245,158,11,0.2),_transparent_28%),radial-gradient(circle_at_80%_20%,_rgba(34,211,238,0.14),_transparent_24%),linear-gradient(180deg,_#020617_0%,_#0f172a_56%,_#111827_100%)] px-4 py-8 text-slate-50">
+      <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col justify-between gap-8">
         <section className="relative overflow-hidden rounded-[2.5rem] border border-white/10 bg-slate-950/60 p-6 shadow-[0_40px_120px_rgba(15,23,42,0.45)] backdrop-blur-xl md:p-10">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(251,191,36,0.14),_transparent_20%),radial-gradient(circle_at_left,_rgba(34,211,238,0.12),_transparent_25%)]" />
           <div className="relative z-10 grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_420px] lg:items-center">
@@ -58,10 +53,10 @@ export default function Home() {
                   <ChevronRight className="size-4" />
                 </button>
                 <a
-                  href="#rules"
+                  href="file:///c:/Users/%E9%83%AD%E4%BA%AE%E4%BA%AE/Desktop/AI%E5%B7%A5%E5%85%B7/AI-product/02-project/.trae/documents/%E5%8F%8C%E4%BA%BA%E5%A1%94%E7%BD%97%E7%AD%96%E7%95%A5%E5%AF%B9%E6%88%98-%E4%BA%A7%E5%93%81%E9%9C%80%E6%B1%82%E6%96%87%E6%A1%A3.md"
                   className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm tracking-[0.18em] text-slate-100 transition hover:bg-white/10"
                 >
-                  查看规则说明
+                  查看规则文档
                 </a>
               </div>
             </div>
@@ -122,7 +117,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="rules" className="grid gap-4 md:grid-cols-3">
+        <section className="grid gap-4 md:grid-cols-3">
           <div className="rounded-[2rem] border border-white/10 bg-slate-950/55 p-5">
             <p className="text-xs uppercase tracking-[0.3em] text-slate-500">地图</p>
             <h2 className="mt-3 font-display text-2xl text-slate-50">10x10 棋盘</h2>

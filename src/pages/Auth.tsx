@@ -18,7 +18,7 @@ export default function Auth() {
   const modeLabel = useMemo(() => (view === "login" ? "登录" : "注册"), [view]);
 
   useEffect(() => {
-    document.title = "命运之战 | 登录";
+    document.title = "命运之战 | 像素大厅 - 登录";
   }, []);
 
   const handleSubmit = async (e?: React.FormEvent) => {
