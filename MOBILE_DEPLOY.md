@@ -1,30 +1,34 @@
-# 手机访问与部署说明
+# 命运之战外层壳页部署说明
 
-## 两种访问方式
+## 当前结构
+- 根入口 `/`：外层网页壳页，负责手机适配、首屏加载、`iframe` 承载
+- 内层入口 `/game/`：现有游戏本体，保持原有业务逻辑与视觉实现
+- 构建产物：
+  - `dist/index.html`
+  - `dist/game/index.html`
 
-### 1. 同一 Wi-Fi 或手机热点下访问
-- 电脑执行 `npm.cmd run dev`
-- 保证电脑和手机在同一个局域网，或手机开热点让电脑连接
-- 在手机浏览器打开 `http://电脑内网IP:5173/#/`
-- 如果打不开，检查 Windows 防火墙是否放行 `5173` 端口
+## 本地验证
+1. 执行 `npm run check`
+2. 执行 `npm run test`
+3. 执行 `npm run build`
+4. 执行 `npm run preview -- --host 0.0.0.0 --port 4178 --strictPort`
 
-### 2. 任意网络访问
-- 必须把项目部署到公网，单靠本地开发服务器无法做到任意 Wi-Fi 都能访问
-- 当前项目已补好 `vercel.json`，可直接部署到 Vercel
+验证地址：
+- 外层壳页：`http://localhost:4178/`
+- 游戏本体：`http://localhost:4178/game/`
 
-## Vercel 部署步骤
-- 将项目推送到 GitHub
-- 在 Vercel 导入该仓库
-- 构建命令填 `npm run build`
-- 输出目录填 `dist`
-- 在环境变量中配置：
-  - `VITE_SUPABASE_URL`
-  - `VITE_SUPABASE_ANON_KEY`
+## Vercel 配置
+- 当前仓库已包含 `vercel.json`
+- 构建命令：`npm run build`
+- 输出目录：`dist`
+- `rewrites` 已补充 `/game` 与 `/game/` 到 `/game/index.html`
 
-## Supabase 必配项
-- 在 Supabase 控制台中补充站点 URL 为你的 Vercel 域名
-- 将生产域名加入允许的重定向/认证域名列表
+## 线上更新方式
+1. 本地修改完成后推送到 `main`
+2. Vercel 自动拉取并重新构建
+3. 访问根域名即可进入外层壳页
 
-## 手机画面说明
-- 项目已加入手机竖屏提示层
-- 建议玩家横屏游玩，避免棋盘和手牌区被压缩
+## 设计原则
+- 不改现有游戏玩法、界面、样式、功能
+- 仅新增外层壳页、嵌入入口、部署配置与移动端兼容层
+- 全站保持相对路径，避免绝对盘符路径泄露
