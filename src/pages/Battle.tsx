@@ -230,6 +230,10 @@ export default function Battle() {
   }, [onlineSession]);
 
   useEffect(() => {
+    document.title = isOnlineBattle ? "命运之战 | 联机对局" : "命运之战 | 本地对局";
+  }, [isOnlineBattle]);
+
+  useEffect(() => {
     if (!isOnlineBattle || !roomId) {
       setOnlineLoading(false);
       setOnlineError(null);
@@ -539,7 +543,7 @@ export default function Battle() {
     <main className="app-shell overflow-hidden text-slate-50 bg-black relative flex flex-col">
       <div className="absolute inset-0 z-0 opacity-40 pointer-events-none" style={{ backgroundImage: `url(${ASSETS.BATTLE_BG})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(2px)' }} />
       
-      <header className="relative z-10 w-full flex-none px-4 py-2 flex items-center justify-between gap-4 bg-black/80 border-b-2 border-gray-800 shadow-md">
+      <header className="relative z-10 flex w-full flex-none flex-wrap items-center justify-between gap-3 border-b-2 border-gray-800 bg-black/80 px-3 py-2 shadow-md sm:flex-nowrap sm:px-4">
         <button
           type="button"
           onClick={handleReturnHome}
@@ -551,7 +555,7 @@ export default function Battle() {
           </span>
         </button>
 
-        <div className="flex-1 max-w-2xl">
+        <div className="max-w-2xl flex-1">
           <BattleHud
             mode={state.gameMode}
             currentPlayerName={currentPlayer.name}
@@ -564,19 +568,19 @@ export default function Battle() {
       </header>
 
       {onlineError && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 rounded-[1.75rem] border border-rose-300/20 bg-rose-300/90 px-4 py-3 text-sm text-rose-50 shadow-lg">
+        <div className="absolute left-1/2 top-20 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-[1.75rem] border border-rose-300/20 bg-rose-300/90 px-4 py-3 text-sm text-rose-50 shadow-lg">
           {onlineError}
         </div>
       )}
 
       {rankedSettlementMessage && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 rounded-[1.75rem] border border-emerald-300/20 bg-emerald-300/90 px-4 py-3 text-sm text-emerald-50 shadow-lg">
+        <div className="absolute left-1/2 top-20 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-[1.75rem] border border-emerald-300/20 bg-emerald-300/90 px-4 py-3 text-sm text-emerald-50 shadow-lg">
           {rankedSettlementMessage}
         </div>
       )}
 
       {isOnlineBattle && onlineLoading && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-50 rounded-[1.75rem] border border-cyan-300/20 bg-cyan-300/90 px-4 py-3 text-sm text-cyan-50 shadow-lg">
+        <div className="absolute left-1/2 top-20 z-50 w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 rounded-[1.75rem] border border-cyan-300/20 bg-cyan-300/90 px-4 py-3 text-sm text-cyan-50 shadow-lg">
           正在连接联机战斗会话并同步棋盘状态...
         </div>
       )}
@@ -606,12 +610,12 @@ export default function Battle() {
       )}
 
       <div className="battle-layout relative z-10">
-        <div className="flex-1 min-w-0 h-full flex flex-col bg-black/40 pixel-panel p-2 sm:p-4 gap-2 sm:gap-4 overflow-hidden">
+        <div className="flex h-full min-w-0 flex-1 flex-col gap-2 overflow-hidden bg-black/40 p-2 sm:gap-4 sm:p-4 pixel-panel">
           <div className="flex-none w-full z-20">
             <PlayerStatusBar currentPlayer={state.currentPlayer} remainingSeconds={remainingSeconds} players={state.players} />
           </div>
-          <div className="flex-1 flex min-h-0 overflow-auto pixel-scrollbar relative">
-            <div className="m-auto w-full h-full min-h-[400px]">
+          <div className="relative flex min-h-0 flex-1 overflow-auto pixel-scrollbar">
+            <div className="m-auto h-full min-h-[300px] w-full sm:min-h-[400px]">
               <DungeonBoard
                 state={state}
                 highlightedCells={highlightedCells}
@@ -622,8 +626,8 @@ export default function Battle() {
           </div>
         </div>
 
-        <aside className="battle-sidebar md:w-[280px] sm:w-[320px] lg:w-[380px] md:h-full shrink-0 flex flex-col bg-black/60 pixel-panel p-2 sm:p-4 min-h-0">
-          <div className="flex-1 min-h-0 overflow-y-auto pixel-scrollbar pr-1 sm:pr-2">
+        <aside className="battle-sidebar flex min-h-0 shrink-0 flex-col bg-black/60 p-2 sm:p-4 pixel-panel md:h-full md:w-[280px] sm:w-[320px] lg:w-[380px]">
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1 sm:pr-2 pixel-scrollbar">
             <SkillBar
               hand={visibleHandOwner.hand}
               selectedCard={state.selectedCard}
