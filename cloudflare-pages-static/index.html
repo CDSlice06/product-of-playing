@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1, user-scalable=no"
+    />
+    <meta name="theme-color" content="#050816" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="format-detection" content="telephone=no, email=no, address=no" />
+    <meta name="description" content="命运之战外层静态壳页，手机与电脑均可直接访问游玩。" />
+    <title>命运之战 | 手机塔罗策略对战</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+    <link rel="stylesheet" href="./assets/shell.css" />
+  </head>
+  <body>
+    <main class="shell-app">
+      <div class="shell-backdrop" aria-hidden="true"></div>
+      <section class="shell-stage" aria-label="命运之战加载容器">
+        <header class="shell-header">
+          <div>
+            <p class="shell-kicker">Cloudflare Pages Static Shell</p>
+            <h1>命运之战</h1>
+            <p class="shell-subtitle">手机与电脑打开链接即可直接进入游戏，无需下载文件。</p>
+          </div>
+          <a class="shell-direct-link" id="openDirect" href="./game/index.html#/auth">直接进入</a>
+        </header>
+
+        <section class="shell-frame-wrap">
+          <iframe
+            id="gameFrame"
+            class="shell-frame"
+            title="命运之战游戏入口"
+            loading="eager"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allow="fullscreen; autoplay; clipboard-read; clipboard-write"
+          ></iframe>
+
+          <div class="shell-overlay is-visible" id="shellOverlay" role="status" aria-live="polite">
+            <div class="shell-panel">
+              <span class="shell-spinner" aria-hidden="true"></span>
+              <h2 id="shellStatusTitle">正在进入命运之战</h2>
+              <p id="shellStatusText">外层壳页已就绪，正在加载游戏本体，请稍候。</p>
+              <div class="shell-actions">
+                <button id="retryButton" type="button" hidden>重新加载</button>
+                <a id="fallbackLink" href="./game/index.html#/auth" hidden>直接打开游戏</a>
+              </div>
+              <p class="shell-tip" id="orientationTip">建议手机横屏游玩，棋盘和手牌区域会更完整。</p>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./assets/shell.js" defer></script>
+  </body>
+</html>
