@@ -35,7 +35,9 @@ create table if not exists public.custom_rooms (
   id uuid primary key default gen_random_uuid(),
   room_code text not null unique,
   owner_id uuid not null references public.profiles (id) on delete cascade,
+  owner_joined boolean not null default false,
   invited_user_id uuid references public.profiles (id) on delete set null,
+  invited_joined boolean not null default false,
   status text not null default 'waiting' check (status in ('waiting', 'ready', 'playing', 'closed')),
   ranked_enabled boolean not null default false,
   created_at timestamptz not null default now()
@@ -121,6 +123,11 @@ create policy "users can see relevant custom rooms"
 on public.custom_rooms for select
 to authenticated
 using (auth.uid() = owner_id or auth.uid() = invited_user_id);
+
+create policy "users can lookup joinable custom rooms"
+on public.custom_rooms for select
+to authenticated
+using (status in ('waiting', 'ready'));
 
 create policy "users can create owned rooms"
 on public.custom_rooms for insert
@@ -258,6 +265,323 @@ begin
 end;
 $$;
 
+drop function if exists public.join_custom_room_by_code(text);
+create or replace function public.join_custom_room_by_code(p_room_code text)
+returns table (
+  id uuid,
+  room_code text,
+  owner_id uuid,
+  owner_joined boolean,
+  invited_user_id uuid,
+  invited_joined boolean,
+  status text,
+  ranked_enabled boolean,
+  created_at timestamptz,
+  owner jsonb,
+  invited jsonb
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  normalized_code text := upper(trim(coalesce(p_room_code, '')));
+  room_record public.custom_rooms%rowtype;
+begin
+  if current_user_id is null then
+    raise exception '当前未登录，无法加入房间。';
+  end if;
+
+  if normalized_code = '' then
+    raise exception '房间码不能为空。';
+  end if;
+
+  select *
+  into room_record
+  from public.custom_rooms
+  where room_code = normalized_code
+  limit 1
+  for update;
+
+  if not found then
+    raise exception '找不到这个房间码。';
+  end if;
+
+  if room_record.status = 'closed' then
+    raise exception '这个房间已经关闭，请让房主重新创建。';
+  end if;
+
+  if room_record.status = 'playing'
+    and room_record.invited_user_id <> current_user_id
+    and room_record.owner_id <> current_user_id then
+    raise exception '这个房间已经在对局中，暂时不能再加入。';
+  end if;
+
+  if room_record.owner_id <> current_user_id
+    and room_record.invited_user_id is not null
+    and room_record.invited_user_id <> current_user_id then
+    raise exception '这个房间已经有其他玩家加入，请让房主重新建房。';
+  end if;
+
+  if room_record.owner_id <> current_user_id then
+    update public.custom_rooms
+    set invited_user_id = current_user_id,
+        invited_joined = false,
+        status = 'waiting'
+    where public.custom_rooms.id = room_record.id;
+  else
+    update public.custom_rooms
+    set owner_joined = true
+    where public.custom_rooms.id = room_record.id;
+  end if;
+
+  return query
+  select
+    cr.id,
+    cr.room_code,
+    cr.owner_id,
+    cr.owner_joined,
+    cr.invited_user_id,
+    cr.invited_joined,
+    cr.status,
+    cr.ranked_enabled,
+    cr.created_at,
+    jsonb_build_object('display_name', owner_profile.display_name) as owner,
+    case
+      when invited_profile.id is null then null
+      else jsonb_build_object('display_name', invited_profile.display_name)
+    end as invited
+  from public.custom_rooms cr
+  join public.profiles owner_profile on owner_profile.id = cr.owner_id
+  left join public.profiles invited_profile on invited_profile.id = cr.invited_user_id
+  where cr.id = room_record.id;
+end;
+$$;
+
+drop function if exists public.enter_custom_room_waiting(uuid);
+create or replace function public.enter_custom_room_waiting(p_room_id uuid)
+returns table (
+  id uuid,
+  room_code text,
+  owner_id uuid,
+  owner_joined boolean,
+  invited_user_id uuid,
+  invited_joined boolean,
+  status text,
+  ranked_enabled boolean,
+  created_at timestamptz,
+  owner jsonb,
+  invited jsonb
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+begin
+  if current_user_id is null then
+    raise exception '当前未登录，无法进入等待房间。';
+  end if;
+
+  update public.custom_rooms
+  set
+    owner_joined = case when owner_id = current_user_id then true else owner_joined end,
+    invited_joined = case when invited_user_id = current_user_id then true else invited_joined end,
+    status = case
+      when status = 'closed' then status
+      when invited_user_id is not null
+        and (case when owner_id = current_user_id then true else owner_joined end)
+        and (case when invited_user_id = current_user_id then true else invited_joined end)
+      then 'ready'
+      when status = 'playing' then status
+      else 'waiting'
+    end
+  where public.custom_rooms.id = p_room_id
+    and (owner_id = current_user_id or invited_user_id = current_user_id);
+
+  if not found then
+    raise exception '你不是这个房间的成员，无法进入等待房间。';
+  end if;
+
+  return query
+  select
+    cr.id,
+    cr.room_code,
+    cr.owner_id,
+    cr.owner_joined,
+    cr.invited_user_id,
+    cr.invited_joined,
+    cr.status,
+    cr.ranked_enabled,
+    cr.created_at,
+    jsonb_build_object('display_name', owner_profile.display_name) as owner,
+    case
+      when invited_profile.id is null then null
+      else jsonb_build_object('display_name', invited_profile.display_name)
+    end as invited
+  from public.custom_rooms cr
+  join public.profiles owner_profile on owner_profile.id = cr.owner_id
+  left join public.profiles invited_profile on invited_profile.id = cr.invited_user_id
+  where cr.id = p_room_id;
+end;
+$$;
+
+drop function if exists public.ensure_battle_session(uuid, jsonb);
+create or replace function public.ensure_battle_session(p_room_id uuid, p_initial_state jsonb)
+returns table (
+  id uuid,
+  room_id uuid,
+  match_type text,
+  status text,
+  player1_user_id uuid,
+  player1_name text,
+  player2_user_id uuid,
+  player2_name text,
+  version integer,
+  winner_user_id uuid,
+  created_at timestamptz,
+  updated_at timestamptz,
+  room jsonb,
+  state jsonb
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  current_user_id uuid := auth.uid();
+  room_record record;
+  session_record public.battle_sessions%rowtype;
+  session_state jsonb := coalesce(p_initial_state, '{}'::jsonb);
+begin
+  if current_user_id is null then
+    raise exception '当前未登录，无法初始化联机战斗。';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended(p_room_id::text, 0));
+
+  select
+    cr.id,
+    cr.room_code,
+    cr.owner_id,
+    cr.owner_joined,
+    cr.invited_user_id,
+    cr.invited_joined,
+    cr.ranked_enabled,
+    cr.status,
+    owner_profile.display_name as owner_name,
+    invited_profile.display_name as invited_name
+  into room_record
+  from public.custom_rooms cr
+  join public.profiles owner_profile on owner_profile.id = cr.owner_id
+  left join public.profiles invited_profile on invited_profile.id = cr.invited_user_id
+  where cr.id = p_room_id
+  limit 1
+  for update of cr;
+
+  if not found then
+    raise exception '找不到这个联机房间。';
+  end if;
+
+  if current_user_id <> room_record.owner_id and current_user_id <> room_record.invited_user_id then
+    raise exception '你不是这个房间的参与者。';
+  end if;
+
+  if room_record.invited_user_id is null then
+    raise exception '房间还没有第二位玩家，暂时不能进入联机对局。';
+  end if;
+
+  if not room_record.owner_joined or not room_record.invited_joined then
+    raise exception '双方尚未同时进入等待房间，暂时不能进入联机对局。';
+  end if;
+
+  if room_record.status <> 'playing' then
+    raise exception '房主尚未开始对局。';
+  end if;
+
+  select *
+  into session_record
+  from public.battle_sessions
+  where room_id = p_room_id
+  limit 1
+  for update;
+
+  if found then
+    return query
+    select
+      bs.id,
+      bs.room_id,
+      bs.match_type,
+      bs.status,
+      bs.player1_user_id,
+      bs.player1_name,
+      bs.player2_user_id,
+      bs.player2_name,
+      bs.version,
+      bs.winner_user_id,
+      bs.created_at,
+      bs.updated_at,
+      jsonb_build_object('room_code', room_record.room_code) as room,
+      bs.state
+    from public.battle_sessions bs
+    where bs.id = session_record.id;
+    return;
+  end if;
+
+  session_state := jsonb_set(session_state, '{gameMode}', to_jsonb('pvp'::text), true);
+  session_state := jsonb_set(session_state, '{aiDifficulty}', to_jsonb('medium'::text), true);
+  session_state := jsonb_set(session_state, '{players,player1,name}', to_jsonb(room_record.owner_name), true);
+  session_state := jsonb_set(session_state, '{players,player2,name}', to_jsonb(coalesce(room_record.invited_name, '玩家2')), true);
+
+  insert into public.battle_sessions (
+    room_id,
+    match_type,
+    status,
+    player1_user_id,
+    player1_name,
+    player2_user_id,
+    player2_name,
+    state,
+    version,
+    winner_user_id
+  )
+  values (
+    room_record.id,
+    case when room_record.ranked_enabled then 'ranked' else 'custom' end,
+    'playing',
+    room_record.owner_id,
+    room_record.owner_name,
+    room_record.invited_user_id,
+    coalesce(room_record.invited_name, '玩家2'),
+    session_state,
+    1,
+    null
+  )
+  returning * into session_record;
+
+  return query
+  select
+    bs.id,
+    bs.room_id,
+    bs.match_type,
+    bs.status,
+    bs.player1_user_id,
+    bs.player1_name,
+    bs.player2_user_id,
+    bs.player2_name,
+    bs.version,
+    bs.winner_user_id,
+    bs.created_at,
+    bs.updated_at,
+    jsonb_build_object('room_code', room_record.room_code) as room,
+    bs.state
+  from public.battle_sessions bs
+  where bs.id = session_record.id;
+end;
+$$;
+
 drop function if exists public.join_rank_queue();
 create or replace function public.join_rank_queue()
 returns table (
@@ -288,6 +612,8 @@ begin
   where id = current_user_id;
 
   current_rating := coalesce(current_rating, 0);
+
+  perform pg_advisory_xact_lock(2026051901);
 
   select
     cr.id,
@@ -323,7 +649,9 @@ begin
   insert into public.rank_queue (user_id, rating_snapshot, created_at)
   values (current_user_id, current_rating, now())
   on conflict (user_id)
-  do update set rating_snapshot = excluded.rating_snapshot;
+  do update set
+    rating_snapshot = excluded.rating_snapshot,
+    created_at = rank_queue.created_at;
 
   select
     q.user_id,
@@ -334,15 +662,15 @@ begin
   where q.user_id <> current_user_id
   order by abs(q.rating_snapshot - current_rating), q.created_at asc
   limit 1
-  for update of q skip locked;
+  for update of q;
 
   if found then
-    insert into public.custom_rooms (room_code, owner_id, invited_user_id, status, ranked_enabled)
-    values (public.generate_ranked_room_code(), opponent_record.user_id, current_user_id, 'ready', true)
-    returning id, room_code into room_id, room_code;
-
     delete from public.rank_queue
     where user_id in (current_user_id, opponent_record.user_id);
+
+    insert into public.custom_rooms (room_code, owner_id, invited_user_id, status, ranked_enabled)
+    values (public.generate_ranked_room_code(), current_user_id, opponent_record.user_id, 'ready', true)
+    returning id, room_code into room_id, room_code;
 
     update public.profiles
     set status = 'in_match',

@@ -1,5 +1,6 @@
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { createGameState, getGameStateSnapshot } from "@/store/gameStore";
+import { ensureOnlineAuthUser, normalizeSupabaseError } from "@/lib/onlineAuth";
 import { supabase } from "@/lib/supabase";
 import type { GameState } from "@/types/game";
 import type { BattleSessionRecord, OnlineBattleRoomInfo } from "@/types/platform";
@@ -139,74 +140,28 @@ async function markRoomPlaying(roomId: string) {
 }
 
 export async function ensureBattleSession(roomId: string) {
-  const room = await fetchOnlineBattleRoom(roomId);
-  if (!room) {
-    throw new Error("找不到这个联机房间。");
-  }
+  await ensureOnlineAuthUser();
 
-  if (!room.invitedUserId) {
-    throw new Error("房间还没有第二位玩家，暂时不能进入联机对局。");
-  }
-
-  const existing = await fetchBattleSession(roomId);
-  if (existing) {
-    if (room.status !== "playing") {
-      await markRoomPlaying(roomId);
-    }
-    return existing;
-  }
-
-  const initialState = createGameState("pvp", "medium", {
-    player1: room.ownerName,
-    player2: room.invitedUserName,
+  const initialState = createGameState("pvp", "medium");
+  const { data, error } = await supabase.rpc("ensure_battle_session", {
+    p_room_id: roomId,
+    p_initial_state: getGameStateSnapshot(initialState),
   });
-
-  await markRoomPlaying(roomId);
-
-  const { data, error } = await supabase
-    .from("battle_sessions")
-    .insert({
-      room_id: room.roomId,
-      match_type: room.rankedEnabled ? "ranked" : "custom",
-      status: "playing",
-      player1_user_id: room.ownerId,
-      player1_name: room.ownerName,
-      player2_user_id: room.invitedUserId,
-      player2_name: room.invitedUserName,
-      state: initialState,
-      version: 1,
-      winner_user_id: null,
-    })
-    .select(`
-      id,
-      room_id,
-      match_type,
-      status,
-      player1_user_id,
-      player1_name,
-      player2_user_id,
-      player2_name,
-      version,
-      winner_user_id,
-      created_at,
-      updated_at,
-      room:room_id (room_code),
-      state
-    `)
-    .maybeSingle();
 
   if (error || !data) {
     const latest = await fetchBattleSession(roomId);
     if (latest) {
       return latest;
     }
-    throw error ?? new Error("创建联机战斗会话失败。");
+    throw normalizeSupabaseError(error, "创建联机战斗会话失败。");
   }
 
-  return mapBattleSession(data);
+  const row = Array.isArray(data) ? data[0] : data;
+  return mapBattleSession(row);
 }
 
 export async function saveBattleSessionState(session: BattleSessionRecord, state: GameState) {
+  await ensureOnlineAuthUser();
   const winnerUserId =
     state.winner === "player1"
       ? session.player1UserId
@@ -244,7 +199,7 @@ export async function saveBattleSessionState(session: BattleSessionRecord, state
     .maybeSingle();
 
   if (error || !data) {
-    throw error ?? new Error("同步联机战斗状态失败。");
+    throw normalizeSupabaseError(error, "同步联机战斗状态失败。");
   }
 
   return mapBattleSession(data);

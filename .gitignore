@@ -23,3 +23,27 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local deploy/cache directories
+.cfconfig/
+.wrangler/
+.xdg/
+AppData/
+
+# Local temp scripts and outputs
+temp_*.mjs
+temp_*.ps1
+temp_*.py
+temp_*.json
+temp_*.txt
+temp_*.log
+
+# Local poster/qr artifacts
+poster_test.png
+poster_qr_cloudflare.png
+product-of-playing-static-qr.png
+
+# Local duplicate sql scratch files
+schema.sql
+room_join_policy_patch.sql
+Rooms.tsx

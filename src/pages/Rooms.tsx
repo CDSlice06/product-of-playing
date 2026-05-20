@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, Copy, Hash, Swords, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { fetchFriends } from "@/lib/friends";
-import { createCustomRoom, fetchRelevantRooms, inviteFriendToRoom, joinRoomByCode } from "@/lib/rooms";
+import { cleanupStaleCustomRooms, createCustomRoom, fetchRelevantRooms, inviteFriendToRoom, joinRoomByCode } from "@/lib/rooms";
 import { useSessionStore } from "@/store/sessionStore";
 import type { CustomRoomRecord, FriendProfile } from "@/types/platform";
 import { ASSETS } from "@/constants/assets";
@@ -17,12 +17,22 @@ export default function Rooms() {
   const [message, setMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const reloadAll = useCallback(async () => {
+  const reloadRooms = useCallback(async () => {
+    if (!authUserId) {
+      return;
+    }
+
+    const roomRows = await fetchRelevantRooms(authUserId);
+    setRooms(roomRows);
+  }, [authUserId]);
+
+  const reloadAll = useCallback(async (keepRoomId?: string) => {
     if (!authUserId) {
       return;
     }
 
     setLoading(true);
+    await cleanupStaleCustomRooms(authUserId, keepRoomId);
     const [roomRows, friendRows] = await Promise.all([
       fetchRelevantRooms(authUserId),
       fetchFriends(authUserId),
@@ -33,8 +43,22 @@ export default function Rooms() {
   }, [authUserId]);
 
   useEffect(() => {
-    reloadAll();
+    void reloadAll();
   }, [reloadAll]);
+
+  useEffect(() => {
+    if (!authUserId) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      void reloadRooms();
+    }, 1500);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [authUserId, reloadRooms]);
 
   const handleCreateRoom = async () => {
     if (!authUserId) {
@@ -44,7 +68,8 @@ export default function Rooms() {
     try {
       const room = await createCustomRoom(authUserId);
       setMessage(`房间创建成功，房间码：${room.roomCode}`);
-      await reloadAll();
+      await reloadAll(room.id);
+      navigate(`/room-wait?roomId=${room.id}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "创建房间失败。");
     }
@@ -59,7 +84,8 @@ export default function Rooms() {
       const joined = await joinRoomByCode(roomCode, authUserId);
       setMessage(`已加入房间 ${joined.roomCode}`);
       setRoomCode("");
-      await reloadAll();
+      await reloadAll(joined.id);
+      navigate(`/room-wait?roomId=${joined.id}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "加入房间失败。");
     }
@@ -69,17 +95,33 @@ export default function Rooms() {
     try {
       const updated = await inviteFriendToRoom(roomId, friendId);
       setMessage(`已向好友发出邀请，房间码：${updated.roomCode}`); 
-      await reloadAll();
+      await reloadAll(updated.id);
+      navigate(`/room-wait?roomId=${updated.id}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "邀请好友失败。");
     }
   };
 
-  const handleEnterOnlineBattle = (roomId: string) => {
-    navigate(`/battle?roomId=${roomId}`);
+  const handleEnterWaitingRoom = (roomId: string) => {
+    navigate(`/room-wait?roomId=${roomId}`);
   };
 
-  const latestOwnedRoom = rooms.find((room) => room.ownerId === authUserId && room.status !== "closed");
+  const latestOwnedRoom = rooms.find(
+    (room) => room.ownerId === authUserId && (room.status === "waiting" || room.status === "ready"),
+  );
+  const visibleRooms = rooms.filter((room) => room.status !== "closed");
+
+  const getRoomStatusLabel = (room: CustomRoomRecord) => {
+    if (room.status === "playing") {
+      return "对局中";
+    }
+
+    if (room.status === "closed") {
+      return "已关闭";
+    }
+
+    return room.ownerJoined && room.invitedUserId && room.invitedJoined ? "已就绪" : "等待中";
+  };
 
   return (
     <main className="app-shell relative overflow-hidden bg-black flex flex-col items-center justify-center">
@@ -202,12 +244,12 @@ export default function Rooms() {
             <div className="flex flex-col gap-2">
               <h2 className="text-lg font-bold text-white text-shadow-pixel">我的房间列表</h2>
               <div className="mt-2 space-y-3 max-h-[200px] overflow-y-auto pixel-scrollbar pr-2">
-                {!loading && rooms.length === 0 && (
+                {!loading && visibleRooms.length === 0 && (
                   <div className="border-2 border-gray-700 bg-gray-800/30 px-3 py-3 text-xs text-gray-400">
                     还没有房间记录。
                   </div>
                 )}
-                {rooms.map((room) => (
+                {visibleRooms.map((room) => (
                   <div key={room.id} className="border-2 border-gray-600 bg-gray-800/40 px-3 py-3">
                     <div className="flex items-start justify-between gap-3">   
                       <div>
@@ -220,14 +262,23 @@ export default function Rooms() {
                         </p>
                       </div>
                       <span className="border-2 border-gray-700 bg-black/50 px-2 py-1 text-[10px] text-gray-300">
-                        {room.status === "waiting" ? "等待中" : room.status === "ready" ? "已就绪" : room.status === "playing" ? "对局中" : "已关闭"}   
+                        {getRoomStatusLabel(room)}
                       </span>
                     </div>
-                    {room.invitedUserId && room.status !== "closed" && (        
+                    {(room.status === "waiting" || room.status === "ready") && (
                       <button
                         type="button"
-                        onClick={() => handleEnterOnlineBattle(room.id)}        
-                        className="mt-3 w-full border-2 border-cyan-600 bg-cyan-900/50 px-3 py-2 text-xs text-cyan-400 font-bold transition hover:bg-cyan-900"   
+                        onClick={() => handleEnterWaitingRoom(room.id)}
+                        className="mt-3 w-full border-2 border-cyan-600 bg-cyan-900/50 px-3 py-2 text-xs text-cyan-400 font-bold transition hover:bg-cyan-900"
+                      >
+                        进入等待房间
+                      </button>
+                    )}
+                    {room.status === "playing" && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/battle?roomId=${room.id}`)}
+                        className="mt-3 w-full border-2 border-cyan-600 bg-cyan-900/50 px-3 py-2 text-xs text-cyan-400 font-bold transition hover:bg-cyan-900"
                       >
                         进入联机对局
                       </button>

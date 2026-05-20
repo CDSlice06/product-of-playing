@@ -80,6 +80,7 @@ interface AiMoveCandidate {
 }
 
 type StateScorer = (state: GameState, playerId: PlayerId, difficulty: AiDifficulty) => number;
+const AGGRESSIVE_SKILL_CARDS = new Set<CardType>(["obstacle", "storm", "tower", "swords8", "temperance", "fool"]);
 
 const CARD_BASE_VALUES: Record<CardType, number> = {
   obstacle: 5,
@@ -98,91 +99,95 @@ const FATE_OUTCOMES: FateOutcome[] = ["sun", "death", "empress"];
 const AI_PROFILES: Record<AiDifficulty, AiProfile> = {
   easy: {
     weights: {
-      ownMoves: 13,
-      rivalMoves: 15,
-      ownPressure: 9,
-      rivalPressure: 11,
-      handValue: 1,
-      centerControl: 1,
-      randomThreat: 8,
-      trapEdge: 8,
-    },
-    skillDeltaThreshold: 16,
-    directSkillMargin: 8,
-    tacticalReductionThreshold: 3,
-    panicMoveThreshold: 1,
-    considerPostMoveSkill: false,
-    postMoveSkillWeight: 0.4,
-    replyWeight: 0,
-    anticipateCounter: false,
-    obstacleCandidateLimit: 10,
-    swordsCandidateLimit: 8,
-    stormRandomSets: [[0.17, 0.41, 0.83]],
-    handPressureSkillThreshold: 4,
-    handPressureSkillTolerance: -1,
-    opportunisticSkillTolerance: 1,
-    directSkillCloseMargin: 0,
-    moveEvaluationLimit: 3,
-    obstacleEvaluationLimit: 4,
-    swordsEvaluationLimit: 4,
-    stormEvaluationLimit: 2,
-  },
-  medium: {
-    weights: {
       ownMoves: 15,
       rivalMoves: 19,
       ownPressure: 10,
-      rivalPressure: 15,
+      rivalPressure: 14,
       handValue: 2,
       centerControl: 1.5,
       randomThreat: 10,
-      trapEdge: 11,
+      trapEdge: 10,
     },
     skillDeltaThreshold: 11,
     directSkillMargin: 4,
     tacticalReductionThreshold: 2,
     panicMoveThreshold: 2,
     considerPostMoveSkill: true,
-    postMoveSkillWeight: 0.65,
-    replyWeight: 0.3,
+    postMoveSkillWeight: 0.55,
+    replyWeight: 0.2,
     anticipateCounter: true,
-    obstacleCandidateLimit: 16,
-    swordsCandidateLimit: 12,
+    obstacleCandidateLimit: 14,
+    swordsCandidateLimit: 10,
     stormRandomSets: [
+      [0.17, 0.41, 0.83],
       [0.11, 0.37, 0.73],
-      [0.19, 0.43, 0.91],
-      [0.07, 0.29, 0.61],
     ],
-    handPressureSkillThreshold: 3,
+    handPressureSkillThreshold: 4,
     handPressureSkillTolerance: -2,
     opportunisticSkillTolerance: 0,
-    directSkillCloseMargin: 1.5,
+    directSkillCloseMargin: 1,
     moveEvaluationLimit: 4,
     obstacleEvaluationLimit: 5,
     swordsEvaluationLimit: 5,
     stormEvaluationLimit: 3,
   },
+  medium: {
+    weights: {
+      ownMoves: 18,
+      rivalMoves: 24,
+      ownPressure: 11,
+      rivalPressure: 18,
+      handValue: 3,
+      centerControl: 2,
+      randomThreat: 12,
+      trapEdge: 16,
+    },
+    skillDeltaThreshold: 7,
+    directSkillMargin: 2,
+    tacticalReductionThreshold: 1,
+    panicMoveThreshold: 2,
+    considerPostMoveSkill: true,
+    postMoveSkillWeight: 0.8,
+    replyWeight: 0.5,
+    anticipateCounter: true,
+    obstacleCandidateLimit: 20,
+    swordsCandidateLimit: 16,
+    stormRandomSets: [
+      [0.11, 0.37, 0.73],
+      [0.19, 0.43, 0.91],
+      [0.07, 0.29, 0.61],
+      [0.13, 0.31, 0.79],
+    ],
+    handPressureSkillThreshold: 3,
+    handPressureSkillTolerance: -3,
+    opportunisticSkillTolerance: -1,
+    directSkillCloseMargin: 2.5,
+    moveEvaluationLimit: 5,
+    obstacleEvaluationLimit: 6,
+    swordsEvaluationLimit: 6,
+    stormEvaluationLimit: 4,
+  },
   hard: {
     weights: {
-      ownMoves: 20,
-      rivalMoves: 28,
-      ownPressure: 12,
-      rivalPressure: 20,
-      handValue: 3,
-      centerControl: 2.5,
-      randomThreat: 14,
-      trapEdge: 20,
+      ownMoves: 24,
+      rivalMoves: 34,
+      ownPressure: 14,
+      rivalPressure: 25,
+      handValue: 4,
+      centerControl: 3,
+      randomThreat: 18,
+      trapEdge: 26,
     },
-    skillDeltaThreshold: 4,
+    skillDeltaThreshold: 2,
     directSkillMargin: 0,
     tacticalReductionThreshold: 1,
     panicMoveThreshold: 2,
     considerPostMoveSkill: true,
-    postMoveSkillWeight: 1,
-    replyWeight: 0.75,
+    postMoveSkillWeight: 1.15,
+    replyWeight: 0.9,
     anticipateCounter: true,
-    obstacleCandidateLimit: 24,
-    swordsCandidateLimit: 18,
+    obstacleCandidateLimit: 30,
+    swordsCandidateLimit: 22,
     stormRandomSets: [
       [0.11, 0.37, 0.73],
       [0.19, 0.43, 0.91],
@@ -190,15 +195,17 @@ const AI_PROFILES: Record<AiDifficulty, AiProfile> = {
       [0.13, 0.31, 0.79],
       [0.23, 0.47, 0.67],
       [0.05, 0.41, 0.89],
+      [0.17, 0.53, 0.77],
+      [0.09, 0.27, 0.95],
     ],
-    handPressureSkillThreshold: 3,
-    handPressureSkillTolerance: -3,
-    opportunisticSkillTolerance: -0.5,
-    directSkillCloseMargin: 3,
-    moveEvaluationLimit: 5,
-    obstacleEvaluationLimit: 6,
-    swordsEvaluationLimit: 6,
-    stormEvaluationLimit: 4,
+    handPressureSkillThreshold: 2,
+    handPressureSkillTolerance: -4,
+    opportunisticSkillTolerance: -2,
+    directSkillCloseMargin: 4,
+    moveEvaluationLimit: 6,
+    obstacleEvaluationLimit: 7,
+    swordsEvaluationLimit: 7,
+    stormEvaluationLimit: 5,
   },
 };
 
@@ -1082,6 +1089,90 @@ function shouldSpendSkillCandidate(
     && candidate.score >= fallbackScore - profile.directSkillCloseMargin;
 }
 
+function shouldUseSkillForTempo(
+  candidate: AiSkillCandidate | null,
+  difficulty: AiDifficulty,
+  handPressure: number,
+  fallbackScore: number,
+) {
+  if (!candidate) {
+    return false;
+  }
+
+  if (difficulty === "easy") {
+    return false;
+  }
+
+  const ownMoveGain = candidate.ownMovesAfter - candidate.ownMovesBefore;
+  const rivalMoveReduction = candidate.rivalMovesBefore - candidate.rivalMovesAfter;
+  const hasTacticalSwing = rivalMoveReduction > 0 || ownMoveGain > 0;
+  const scoreSlack = difficulty === "hard" ? 9 : 6;
+  const deltaSlack = difficulty === "hard" ? -6 : -3;
+
+  if (candidate.createsWin) {
+    return true;
+  }
+
+  if (
+    handPressure >= 1
+    && AGGRESSIVE_SKILL_CARDS.has(candidate.plan.card)
+    && rivalMoveReduction > 0
+    && candidate.delta >= (difficulty === "hard" ? -22 : -16)
+  ) {
+    return true;
+  }
+
+  if (handPressure >= 3 && candidate.score >= fallbackScore - scoreSlack && candidate.delta >= deltaSlack) {
+    return true;
+  }
+
+  if (hasTacticalSwing && handPressure >= 1 && candidate.score >= fallbackScore - (scoreSlack + 1) && candidate.delta >= deltaSlack - 2) {
+    return true;
+  }
+
+  if (hasTacticalSwing && handPressure >= 2 && candidate.score >= fallbackScore - scoreSlack) {
+    return true;
+  }
+
+  return rivalMoveReduction >= 2 && candidate.score >= fallbackScore - (scoreSlack + 2);
+}
+
+function shouldUseSkillAggressively(
+  candidate: AiSkillCandidate | null,
+  difficulty: AiDifficulty,
+  handPressure: number,
+) {
+  if (!candidate || difficulty === "easy") {
+    return false;
+  }
+
+  if (handPressure < 1) {
+    return false;
+  }
+
+  const ownMoveGain = candidate.ownMovesAfter - candidate.ownMovesBefore;
+  const rivalMoveReduction = candidate.rivalMovesBefore - candidate.rivalMovesAfter;
+  const isAggressiveCard = AGGRESSIVE_SKILL_CARDS.has(candidate.plan.card);
+
+  if (!isAggressiveCard) {
+    return false;
+  }
+
+  if (candidate.createsWin) {
+    return true;
+  }
+
+  if (rivalMoveReduction > 0) {
+    return true;
+  }
+
+  if (ownMoveGain > 0) {
+    return candidate.delta >= (difficulty === "hard" ? -10 : -6);
+  }
+
+  return handPressure >= 3 && candidate.delta >= (difficulty === "hard" ? -12 : -6);
+}
+
 function getBestMoveCandidate(state: GameState, difficulty: AiDifficulty, useLookahead = true): AiMoveCandidate | null {
   const playerId = state.currentPlayer;
   const legalMoves = getLegalMoves(state, playerId);
@@ -1194,6 +1285,10 @@ export function chooseAiMovePhaseAction(state: GameState): AiMovePhaseAction {
     return { type: "direct-skill", plan: directSkill.plan };
   }
 
+  if (directSkill && shouldUseSkillForTempo(directSkill, difficulty, handPressure, fallbackScore)) {
+    return { type: "direct-skill", plan: directSkill.plan };
+  }
+
   if (bestMove) {
     return { type: "move", target: bestMove.target };
   }
@@ -1226,6 +1321,14 @@ export function chooseAiSkillPlan(state: GameState) {
   }
 
   if (shouldSpendSkillCandidate(state, candidate, state.aiDifficulty, handPressure, baselineScore)) {
+    return candidate.plan;
+  }
+
+  if (shouldUseSkillForTempo(candidate, state.aiDifficulty, handPressure, baselineScore)) {
+    return candidate.plan;
+  }
+
+  if (shouldUseSkillAggressively(candidate, state.aiDifficulty, handPressure)) {
     return candidate.plan;
   }
 

@@ -40,8 +40,10 @@ export interface CustomRoomRecord {
   roomCode: string;
   ownerId: string;
   ownerName: string;
+  ownerJoined: boolean;
   invitedUserId: string | null;
   invitedUserName: string | null;
+  invitedJoined: boolean;
   status: "waiting" | "ready" | "playing" | "closed";
   rankedEnabled: boolean;
   createdAt: string;

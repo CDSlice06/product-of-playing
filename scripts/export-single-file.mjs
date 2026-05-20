@@ -94,7 +94,6 @@ async function main() {
 
   html = html.replace(scriptMatch[0], () => inlineAssets);
   html = inlineAssetUrls(html, assetDataUrlMap);
-  html = html.replace(/<title>[\s\S]*?<\/title>/i, "<title>命运之战 | 手机塔罗策略对战</title>");
 
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, html, "utf8");

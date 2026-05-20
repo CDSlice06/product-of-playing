@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { ensureOnlineAuthUser, normalizeSupabaseError } from "@/lib/onlineAuth";
 import type {
   RankedJoinResult,
   RankedMatchRecord,
@@ -127,9 +128,10 @@ export async function fetchRecentRankedMatches(userId: string): Promise<RankedMa
 }
 
 export async function joinRankedQueue(): Promise<RankedJoinResult> {
+  await ensureOnlineAuthUser();
   const { data, error } = await supabase.rpc("join_rank_queue");
   if (error || !data) {
-    throw error ?? new Error("进入匹配队列失败。");
+    throw normalizeSupabaseError(error, "进入匹配队列失败。");
   }
 
   const row = Array.isArray(data) ? data[0] : data;
@@ -144,20 +146,22 @@ export async function joinRankedQueue(): Promise<RankedJoinResult> {
 }
 
 export async function leaveRankedQueue() {
+  await ensureOnlineAuthUser();
   const { error } = await supabase.rpc("leave_rank_queue");
   if (error) {
-    throw error;
+    throw normalizeSupabaseError(error, "退出匹配队列失败。");
   }
 }
 
 export async function settleRankedMatch(roomId: string, result: "win" | "loss") {
+  await ensureOnlineAuthUser();
   const { data, error } = await supabase.rpc("finish_ranked_match", {
     p_room_id: roomId,
     p_result: result,
   });
 
   if (error || !data) {
-    throw error ?? new Error("结算天梯对局失败。");
+    throw normalizeSupabaseError(error, "结算天梯对局失败。");
   }
 
   return Array.isArray(data) ? data[0] : data;

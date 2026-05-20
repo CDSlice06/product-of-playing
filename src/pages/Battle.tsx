@@ -7,6 +7,7 @@ import DungeonBoard from "@/components/DungeonBoard";
 import PlayerStatusBar from "@/components/PlayerStatusBar";
 import SkillBar from "@/components/SkillBar";
 import { ensureBattleSession, fetchBattleSession, saveBattleSessionState, subscribeBattleSession } from "@/lib/battleSession";
+import { leaveCustomRoom, subscribeCustomRoom } from "@/lib/rooms";
 import { settleRankedMatch } from "@/lib/ranked";
 import { useGameStore } from "@/store/gameStore";
 import type { Position } from "@/types/game";
@@ -196,7 +197,10 @@ export default function Battle() {
   const aiRunTokenRef = useRef(0);
   const onlineSessionRef = useRef<BattleSessionRecord | null>(null);
   const applyingRemoteStateRef = useRef(false);
+  const onlineSyncInFlightRef = useRef(false);
+  const pendingOnlineStateRef = useRef<GameState | null>(null);
   const rankedSettlementRef = useRef<string | null>(null);
+  const forcedRoomExitRef = useRef(false);
   const lastSyncedStateRef = useRef("");
   const roomId = searchParams.get("roomId");
   const isOnlineBattle = Boolean(roomId && authUserId);
@@ -230,6 +234,10 @@ export default function Battle() {
   }, [onlineSession]);
 
   useEffect(() => {
+    forcedRoomExitRef.current = false;
+  }, [roomId]);
+
+  useEffect(() => {
     if (!isOnlineBattle || !roomId) {
       setOnlineLoading(false);
       setOnlineError(null);
@@ -245,6 +253,7 @@ export default function Battle() {
         if (!active) {
           return;
         }
+        onlineSessionRef.current = record.session;
         setOnlineSession(record.session);
         if (record.state) {
           applyingRemoteStateRef.current = true;
@@ -278,19 +287,21 @@ export default function Battle() {
     }
 
     return subscribeBattleSession(roomId, async (record) => {
-      const normalizedRecord = record.session.roomCode
-        ? record
-        : await fetchBattleSession(roomId);
+      const normalizedRecord = (await fetchBattleSession(roomId)) ?? record;
 
       if (!normalizedRecord) {
         return;
       }
 
-      setOnlineSession((previous) => ({
-        ...(previous ?? normalizedRecord.session),
-        ...normalizedRecord.session,
-        roomCode: normalizedRecord.session.roomCode || previous?.roomCode || "",
-      }));
+      setOnlineSession((previous) => {
+        const nextSession = {
+          ...(previous ?? normalizedRecord.session),
+          ...normalizedRecord.session,
+          roomCode: normalizedRecord.session.roomCode || previous?.roomCode || "",
+        };
+        onlineSessionRef.current = nextSession;
+        return nextSession;
+      });
 
       if (!normalizedRecord.state) {
         return;
@@ -309,6 +320,41 @@ export default function Battle() {
       }, 0);
     });
   }, [hydrateGameState, isOnlineBattle, roomId]);
+
+  useEffect(() => {
+    if (!isOnlineBattle || !roomId || !authUserId) {
+      return;
+    }
+
+    const forceLeaveClosedRoom = (message: string) => {
+      if (forcedRoomExitRef.current) {
+        return;
+      }
+
+      forcedRoomExitRef.current = true;
+      setOnlineError(message);
+      state.resetGame();
+      window.setTimeout(() => {
+        navigate("/rooms", { replace: true });
+      }, 800);
+    };
+
+    return subscribeCustomRoom(roomId, (room) => {
+      if (!room) {
+        forceLeaveClosedRoom("当前自定义房间已解散，你已被强制退出房间。");
+        return;
+      }
+
+      if (room.status === "closed") {
+        forceLeaveClosedRoom("对方已离开自定义房间，房间已强制解散，你已被退出房间。");
+        return;
+      }
+
+      if (room.ownerId === authUserId && !room.invitedUserId) {
+        setOnlineError(`${room.invitedUserName ?? "对方玩家"}已离开房间。`);
+      }
+    });
+  }, [authUserId, isOnlineBattle, navigate, roomId, state]);
 
   useEffect(() => {
     let timer: number | null = null;
@@ -367,52 +413,89 @@ export default function Battle() {
       return;
     }
 
+    let disposed = false;
+
+    const applyLatestSession = (record: NonNullable<Awaited<ReturnType<typeof fetchBattleSession>>>) => {
+      setOnlineSession((previous) => {
+        const nextSession = {
+          ...(previous ?? record.session),
+          ...record.session,
+          roomCode: record.session.roomCode || previous?.roomCode || "",
+        };
+        onlineSessionRef.current = nextSession;
+        return nextSession;
+      });
+    };
+
+    const flushPendingOnlineState = async () => {
+      if (disposed || onlineSyncInFlightRef.current) {
+        return;
+      }
+
+      const nextState = pendingOnlineStateRef.current;
+      const currentSession = onlineSessionRef.current;
+      if (!nextState || !currentSession) {
+        return;
+      }
+
+      onlineSyncInFlightRef.current = true;
+      pendingOnlineStateRef.current = null;
+
+      try {
+        const saved = await saveBattleSessionState(currentSession, nextState);
+        if (disposed) {
+          return;
+        }
+
+        onlineSessionRef.current = saved.session;
+        applyLatestSession(saved);
+        lastSyncedStateRef.current = JSON.stringify(saved.state ?? nextState);
+      } catch (error) {
+        if (disposed) {
+          return;
+        }
+
+        const latest = roomId ? await fetchBattleSession(roomId) : null;
+        if (latest?.state) {
+          applyingRemoteStateRef.current = true;
+          onlineSessionRef.current = latest.session;
+          hydrateGameState(latest.state);
+          lastSyncedStateRef.current = JSON.stringify(latest.state);
+          applyLatestSession(latest);
+          window.setTimeout(() => {
+            applyingRemoteStateRef.current = false;
+          }, 0);
+          return;
+        }
+
+        setOnlineError(error instanceof Error ? error.message : "联机对局同步失败。");
+      } finally {
+        onlineSyncInFlightRef.current = false;
+        if (!disposed && pendingOnlineStateRef.current) {
+          void flushPendingOnlineState();
+        }
+      }
+    };
+
     const unsubscribe = useGameStore.subscribe((nextState) => {
       if (applyingRemoteStateRef.current) {
         return;
       }
 
-      const serialized = JSON.stringify(getGameStateSnapshot(nextState));
+      const snapshot = getGameStateSnapshot(nextState);
+      const serialized = JSON.stringify(snapshot);
       if (serialized === lastSyncedStateRef.current) {
         return;
       }
 
-      const currentSession = onlineSessionRef.current;
-      if (!currentSession) {
-        return;
-      }
-
-      void saveBattleSessionState(currentSession, nextState)
-        .then((saved) => {
-          setOnlineSession((previous) => ({
-            ...(previous ?? saved.session),
-            ...saved.session,
-            roomCode: saved.session.roomCode || previous?.roomCode || "",
-          }));
-          lastSyncedStateRef.current = JSON.stringify(saved.state ?? nextState);
-        })
-        .catch(async (error) => {
-          const latest = roomId ? await fetchBattleSession(roomId) : null;
-          if (latest?.state) {
-            applyingRemoteStateRef.current = true;
-            hydrateGameState(latest.state);
-            lastSyncedStateRef.current = JSON.stringify(latest.state);
-            setOnlineSession((previous) => ({
-              ...(previous ?? latest.session),
-              ...latest.session,
-              roomCode: latest.session.roomCode || previous?.roomCode || "",
-            }));
-            window.setTimeout(() => {
-              applyingRemoteStateRef.current = false;
-            }, 0);
-            return;
-          }
-
-          setOnlineError(error instanceof Error ? error.message : "联机对局同步失败。");
-        });
+      pendingOnlineStateRef.current = snapshot;
+      void flushPendingOnlineState();
     });
 
     return () => {
+      disposed = true;
+      pendingOnlineStateRef.current = null;
+      onlineSyncInFlightRef.current = false;
       unsubscribe();
     };
   }, [hydrateGameState, isOnlineBattle, onlineLoading, onlineSession, roomId]);
@@ -517,8 +600,16 @@ export default function Battle() {
     revealed: state.fateState?.revealedIndices.includes(index) ?? false,
   })) ?? [];
 
-  const handleReturnHome = () => {
+  const handleReturnHome = async () => {
     if (isOnlineBattle && onlineSession) {
+      if (onlineSession.matchType === "custom" && authUserId) {
+        try {
+          await leaveCustomRoom(onlineSession.roomId, authUserId);
+        } catch {
+          // Keep navigation responsive even if cleanup fails.
+        }
+      }
+
       navigate(onlineSession.matchType === "ranked" ? "/ranked" : "/rooms");
       return;
     }

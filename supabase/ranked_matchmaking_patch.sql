@@ -89,6 +89,10 @@ begin
 
   current_rating := coalesce(current_rating, 0);
 
+  -- Serialise matchmaking so two players clicking "开始匹配" at nearly the same
+  -- moment cannot each create a separate ranked room for the same pair.
+  perform pg_advisory_xact_lock(2026051901);
+
   select
     cr.id,
     cr.room_code,
@@ -123,7 +127,9 @@ begin
   insert into public.rank_queue (user_id, rating_snapshot, created_at)
   values (current_user_id, current_rating, now())
   on conflict (user_id)
-  do update set rating_snapshot = excluded.rating_snapshot;
+  do update set
+    rating_snapshot = excluded.rating_snapshot,
+    created_at = rank_queue.created_at;
 
   select
     q.user_id,
@@ -134,15 +140,15 @@ begin
   where q.user_id <> current_user_id
   order by abs(q.rating_snapshot - current_rating), q.created_at asc
   limit 1
-  for update of q skip locked;
+  for update of q;
 
   if found then
-    insert into public.custom_rooms (room_code, owner_id, invited_user_id, status, ranked_enabled)
-    values (public.generate_ranked_room_code(), opponent_record.user_id, current_user_id, 'ready', true)
-    returning id, room_code into room_id, room_code;
-
     delete from public.rank_queue
     where user_id in (current_user_id, opponent_record.user_id);
+
+    insert into public.custom_rooms (room_code, owner_id, invited_user_id, status, ranked_enabled)
+    values (public.generate_ranked_room_code(), current_user_id, opponent_record.user_id, 'ready', true)
+    returning id, room_code into room_id, room_code;
 
     update public.profiles
     set status = 'in_match',

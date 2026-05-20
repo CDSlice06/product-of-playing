@@ -1,10 +1,13 @@
-import { BookOpen, LogOut, Shield, Smartphone, Swords, Trophy, UserPlus, Users } from "lucide-react";
+import { BookOpen, LogOut, Shield, Smartphone, Sparkles, Swords, Trophy, UserPlus, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { signOutAccount } from "@/lib/account";
+import { leaveRelevantCustomRooms } from "@/lib/rooms";
 import { useGameStore } from "@/store/gameStore";
 import { useSessionStore } from "@/store/sessionStore";
 import { ASSETS } from "@/constants/assets";
+import type { AiDifficulty } from "@/types/game";
+import { AI_DIFFICULTY_DESCRIPTIONS, AI_DIFFICULTY_LABELS } from "@/utils/board";
 import LobbyScene from "@/components/LobbyScene";
 import TarotGallery from "@/components/TarotGallery";
 
@@ -12,8 +15,11 @@ export default function Lobby() {
   const navigate = useNavigate();
   const profile = useSessionStore((state) => state.profile);
   const mode = useSessionStore((state) => state.mode);
+  const authUserId = useSessionStore((state) => state.authUserId);
   const clearSession = useSessionStore((state) => state.clearSession);
+  const aiDifficulty = useGameStore((state) => state.aiDifficulty);
   const setGameMode = useGameStore((state) => state.setGameMode);
+  const setAiDifficulty = useGameStore((state) => state.setAiDifficulty);
   const [showGallery, setShowGallery] = useState(false);
 
   const isGuest = mode === "guest" || profile?.isGuest;
@@ -22,7 +28,8 @@ export default function Lobby() {
     document.title = "命运之战 | 像素大厅";
   }, []);
 
-  const handleGuestPve = () => {
+  const handleGuestPve = (difficulty: AiDifficulty) => {
+    setAiDifficulty(difficulty);
     setGameMode("pve");
     navigate("/battle");
   };
@@ -34,6 +41,9 @@ export default function Lobby() {
 
   const handleSignOut = async () => {
     if (!isGuest) {
+      if (authUserId) {
+        await leaveRelevantCustomRooms(authUserId);
+      }
       await signOutAccount();
     }
     clearSession();
@@ -70,6 +80,32 @@ export default function Lobby() {
             </button>
           </div>
 
+          <button
+            onClick={() => navigate("/divination")}
+            className="pixel-panel relative overflow-hidden p-0 border-2 border-fuchsia-500/70 bg-black/70 text-left transition-all hover:border-fuchsia-300 hover:shadow-[0_0_24px_rgba(217,70,239,0.35)]"
+          >
+            <div
+              className="absolute inset-0 opacity-45"
+              style={{ backgroundImage: `url(${ASSETS.DIVINATION_HERO})`, backgroundSize: "cover", backgroundPosition: "center" }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-fuchsia-950/60" />
+            <div className="relative z-10 p-4 sm:p-5">
+              <div className="inline-flex items-center gap-2 border border-fuchsia-400/60 bg-fuchsia-950/50 px-3 py-1 text-[10px] font-bold text-fuchsia-200">
+                <Sparkles className="size-3.5" />
+                神秘占卜
+              </div>
+              <div className="mt-3 text-white font-bold text-xl text-shadow-pixel">塔罗占卜</div>
+              <div className="mt-2 max-w-md text-xs leading-6 text-fuchsia-100/90">
+                完整 78 张塔罗牌，按洗牌、切牌、抽牌、解读流程进行占卜。
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2 text-[10px]">
+                <span className="border border-fuchsia-400/50 bg-fuchsia-950/45 px-2 py-1 text-fuchsia-100">78 张完整牌库</span>
+                <span className="border border-amber-400/50 bg-amber-950/35 px-2 py-1 text-amber-100">仪式感流程</span>
+                <span className="border border-cyan-400/50 bg-cyan-950/35 px-2 py-1 text-cyan-100">逐张翻牌</span>
+              </div>
+            </div>
+          </button>
+
           {/* Mode Select */}
           <div className="pixel-panel relative p-4 sm:p-6 bg-black/60 border-2 border-gray-700 flex flex-col gap-4 mt-2">
              <div className="absolute -top-4 left-6 bg-gray-800 border-2 border-gray-600 px-4 py-1 text-amber-400 text-sm font-bold z-10 shadow-md">
@@ -78,14 +114,19 @@ export default function Lobby() {
              
              {/* Online Modes */}
              <div className="grid grid-cols-2 gap-3 mt-4">
-                <button
-                  disabled={isGuest}
-                  onClick={() => navigate("/ranked")}
-                  className="flex flex-col items-center justify-center p-3 border-2 border-gray-700 bg-black/50 hover:border-amber-400 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed group transition-all"
+                <div
+                  aria-disabled="true"
+                  className="relative flex flex-col items-center justify-center p-3 border-2 border-gray-700 bg-black/50 opacity-70 cursor-not-allowed select-none"
                 >
-                  <Trophy className="size-8 text-amber-400 mb-2 group-hover:animate-pulse drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+                  <div className="relative mb-2 pt-4">
+                    <Trophy className="size-8 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+                    <span className="absolute left-1/2 top-0 -translate-x-1/2 border border-amber-500 bg-amber-900/90 px-1.5 py-0.5 text-[9px] font-bold leading-none text-amber-200 whitespace-nowrap">
+                      待开放
+                    </span>
+                  </div>
                   <span className="text-white font-bold text-shadow-pixel">随机匹配</span>
-                </button>
+                  <span className="mt-1 text-[10px] text-amber-300">功能暂未开放</span>
+                </div>
                 <button
                   disabled={isGuest}
                   onClick={() => navigate("/rooms")}
@@ -119,16 +160,34 @@ export default function Lobby() {
 
              {/* Local / PVE Modes */}
              <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleGuestPve}
-                  className="flex items-center gap-3 p-3 border-2 border-gray-700 bg-black/50 hover:border-cyan-400 hover:bg-gray-800 transition-all"
-                >
-                  <Swords className="size-6 text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]" />
-                  <div className="text-left">
-                    <div className="text-white font-bold text-shadow-pixel">人机练习</div>
-                    <div className="text-gray-400 text-xs mt-1">单人挑战命运傀儡</div>
+                <div className="p-3 border-2 border-gray-700 bg-black/50">
+                  <div className="flex items-center gap-3">
+                    <Swords className="size-6 text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]" />
+                    <div className="text-left">
+                      <div className="text-white font-bold text-shadow-pixel">人机练习</div>
+                      <div className="text-gray-400 text-xs mt-1">单人挑战命运傀儡，可自行选择简单 / 中等 / 困难</div>
+                    </div>
                   </div>
-                </button>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {(["easy", "medium", "hard"] as AiDifficulty[]).map((difficulty) => (
+                      <button
+                        key={difficulty}
+                        type="button"
+                        onClick={() => handleGuestPve(difficulty)}
+                        className={`border-2 px-2 py-2 text-xs font-bold transition-all ${
+                          aiDifficulty === difficulty
+                            ? "border-cyan-300 bg-cyan-900/50 text-cyan-100"
+                            : "border-cyan-900/70 bg-cyan-950/40 text-cyan-300 hover:border-cyan-500 hover:bg-cyan-900/40"
+                        }`}
+                      >
+                        {AI_DIFFICULTY_LABELS[difficulty]}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="mt-2 text-[11px] text-cyan-200">
+                    当前默认：{AI_DIFFICULTY_LABELS[aiDifficulty]}。{AI_DIFFICULTY_DESCRIPTIONS[aiDifficulty]}
+                  </div>
+                </div>
                 <button
                   disabled={isGuest}
                   onClick={handleLocalPvp}

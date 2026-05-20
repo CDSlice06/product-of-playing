@@ -55,8 +55,8 @@ export default function Ranked() {
     }
 
     const timer = window.setInterval(() => {
-      reloadAll();
-    }, 4000);
+      void reloadAll();
+    }, queueEntry && !activeRoom ? 1500 : 2000);
 
     return () => {
       window.clearInterval(timer);
@@ -75,6 +75,10 @@ export default function Ranked() {
   }, [queueEntry]);
 
   const handleJoinQueue = async () => {
+    if (!authUserId) {
+      return;
+    }
+
     try {
       setBusy(true);
       const result = await joinRankedQueue();
@@ -86,7 +90,21 @@ export default function Ranked() {
       );
       await reloadAll();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "进入匹配队列失败。");
+      const [nextQueue, nextRoom] = await Promise.all([
+        fetchCurrentQueueEntry(authUserId),
+        fetchActiveRankedRoom(authUserId),
+      ]);
+
+      setQueueEntry(nextQueue);
+      setActiveRoom(nextRoom);
+
+      if (nextRoom) {
+        setMessage(`匹配已完成，当前对手：${nextRoom.ownerId === authUserId ? nextRoom.invitedUserName ?? "未知占星师" : nextRoom.ownerName}，房间码 ${nextRoom.roomCode}。`);
+      } else if (nextQueue) {
+        setMessage("已进入匹配队列，正在等待另一位玩家。");
+      } else {
+        setMessage(error instanceof Error ? error.message : "进入匹配队列失败。");
+      }
     } finally {
       setBusy(false);
     }
@@ -125,6 +143,8 @@ export default function Ranked() {
   const handleEnterOnlineBattle = (roomId: string) => {
     navigate(`/battle?roomId=${roomId}`);
   };
+
+  const rankedDisabled = true;
 
   return (
     <main className="app-shell relative overflow-hidden bg-black flex flex-col items-center justify-center">
@@ -169,9 +189,14 @@ export default function Ranked() {
               </div>
               
               <div className="mt-4 flex flex-col gap-3">
+                {rankedDisabled && (
+                  <div className="border-2 border-amber-600 bg-amber-900/30 px-3 py-2 text-sm font-bold text-amber-300 text-center">
+                    待开放
+                  </div>
+                )}
                 <button
                   type="button"
-                  disabled={busy || Boolean(queueEntry) || Boolean(activeRoom)} 
+                  disabled={rankedDisabled || busy || Boolean(queueEntry) || Boolean(activeRoom)}
                   onClick={handleJoinQueue}
                   className="w-full border-2 border-amber-500 bg-amber-900/50 px-4 py-3 text-sm text-amber-400 font-bold transition hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-50 text-shadow-pixel"
                 >
@@ -180,7 +205,7 @@ export default function Ranked() {
                 <div className="flex gap-3">
                   <button
                     type="button"
-                    disabled={busy || !queueEntry}
+                    disabled={rankedDisabled || busy || !queueEntry}
                     onClick={handleLeaveQueue}
                     className="flex-1 border-2 border-gray-600 bg-gray-800/50 px-4 py-2 text-sm text-slate-100 transition hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -188,7 +213,7 @@ export default function Ranked() {
                   </button>
                   <button
                     type="button"
-                    disabled={busy || !activeRoom}
+                    disabled={rankedDisabled || busy || !activeRoom}
                     onClick={() => activeRoom && handleEnterOnlineBattle(activeRoom.id)}
                     className="flex-1 border-2 border-cyan-500 bg-cyan-900/50 px-4 py-2 text-sm text-cyan-400 font-bold transition hover:bg-cyan-900 disabled:cursor-not-allowed disabled:opacity-50"
                   >

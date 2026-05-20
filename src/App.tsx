@@ -8,7 +8,9 @@ import Friends from "@/pages/Friends";
 import Leaderboard from "@/pages/Leaderboard";
 import Lobby from "@/pages/Lobby";
 import Ranked from "@/pages/Ranked";
+import RoomWait from "@/pages/RoomWait";
 import Rooms from "@/pages/Rooms";
+import TarotDivination from "@/pages/TarotDivination";
 import MobileOrientationGuard from "@/components/MobileOrientationGuard";
 import { useSessionStore } from "@/store/sessionStore";
 
@@ -95,7 +97,9 @@ export default function App() {
         <Route path="/friends" element={<RequireAuthenticated><Friends /></RequireAuthenticated>} />
         <Route path="/leaderboard" element={<RequireAuthenticated><Leaderboard /></RequireAuthenticated>} />
         <Route path="/rooms" element={<RequireAuthenticated><Rooms /></RequireAuthenticated>} />
+        <Route path="/room-wait" element={<RequireAuthenticated><RoomWait /></RequireAuthenticated>} />
         <Route path="/ranked" element={<RequireAuthenticated><Ranked /></RequireAuthenticated>} />
+        <Route path="/divination" element={<RequireSession><TarotDivination /></RequireSession>} />
         <Route path="/play-local" element={<RequireSession><Home /></RequireSession>} />
         <Route path="/battle" element={<Battle />} />
         <Route path="*" element={<Navigate to="/" replace />} />

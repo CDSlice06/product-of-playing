@@ -1219,6 +1219,95 @@ describe("AI策略", () => {
     expect(chooseAiSkillPlan(state)).not.toBeNull();
   });
 
+  it("中等难度 AI 在技能阶段拿到压制牌时，不会一直跳过出牌", () => {
+    const rivalPosition = { x: 4, y: 4 };
+    const rivalNeighbors = getNeighbors(rivalPosition);
+    const escapeCells = rivalNeighbors.slice(0, 2);
+    const blockedCells = rivalNeighbors.slice(2);
+
+    const state = createState({
+      gameMode: "pve",
+      aiDifficulty: "medium",
+      currentPlayer: "player2",
+      phase: "skill",
+      players: {
+        player1: {
+          id: "player1",
+          name: "占星师",
+          position: rivalPosition,
+          hand: [],
+          moveCount: 0,
+          usedCardCount: 0,
+          lockedTurns: 0,
+          randomMovePending: false,
+        },
+        player2: {
+          id: "player2",
+          name: "命运傀儡",
+          position: { x: 8, y: 8 },
+          hand: ["obstacle", "storm", "tower"],
+          moveCount: 0,
+          usedCardCount: 0,
+          lockedTurns: 0,
+          randomMovePending: false,
+        },
+      },
+      obstacles: blockedCells,
+    });
+
+    const plan = chooseAiSkillPlan(state);
+
+    expect(plan).not.toBeNull();
+    if (plan?.card === "obstacle") {
+      expect(escapeCells).toContainEqual(plan.target);
+    }
+  });
+
+  it("中等难度 AI 在移动后只摸到 1 张压制牌时，也会主动出牌而不是直接跳过", () => {
+    const rivalPosition = { x: 4, y: 4 };
+    const rivalNeighbors = getNeighbors(rivalPosition);
+    const escapeCells = rivalNeighbors.slice(0, 2);
+    const blockedCells = rivalNeighbors.slice(2);
+
+    const state = createState({
+      gameMode: "pve",
+      aiDifficulty: "medium",
+      currentPlayer: "player2",
+      phase: "skill",
+      players: {
+        player1: {
+          id: "player1",
+          name: "占星师",
+          position: rivalPosition,
+          hand: [],
+          moveCount: 0,
+          usedCardCount: 0,
+          lockedTurns: 0,
+          randomMovePending: false,
+        },
+        player2: {
+          id: "player2",
+          name: "命运傀儡",
+          position: { x: 8, y: 8 },
+          hand: ["obstacle"],
+          moveCount: 0,
+          usedCardCount: 0,
+          lockedTurns: 0,
+          randomMovePending: false,
+        },
+      },
+      obstacles: blockedCells,
+    });
+
+    const plan = chooseAiSkillPlan(state);
+
+    expect(plan).not.toBeNull();
+    expect(plan).toMatchObject({ card: "obstacle" });
+    if (plan?.card === "obstacle") {
+      expect(escapeCells).toContainEqual(plan.target);
+    }
+  });
+
   it("困难 AI 在移动阶段会主动直出压制牌，而不是优先随便走一步", () => {
     const rivalPosition = { x: 4, y: 4 };
     const rivalNeighbors = getNeighbors(rivalPosition);
