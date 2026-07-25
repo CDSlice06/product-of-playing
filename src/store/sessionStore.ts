@@ -1,8 +1,8 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { fetchProfile } from "@/lib/account";
+import { fetchCurrentUser } from "@/lib/account";
 import { getRankByPoints } from "@/lib/ranks";
-import { supabase } from "@/lib/supabase";
+import { getToken } from "@/lib/api";
 import type { PlayerAccessMode, UserProfile } from "@/types/platform";
 
 interface SessionStore {
@@ -74,17 +74,30 @@ export const useSessionStore = create<SessionStore>()(
         const previousMode = get().mode;
         const previousProfile = get().profile;
         const isGuestSession = previousMode === "guest" && previousProfile?.isGuest;
+
+        const token = getToken();
+        if (!token) {
+          set({
+            ready: true,
+            mode: isGuestSession ? "guest" : null,
+            profile: isGuestSession ? previousProfile : null,
+            authUserId: null,
+            errorMessage: null,
+          });
+          return;
+        }
+
         let sessionBootstrapTimedOut = false;
-        const sessionResult = await withTimeout(
-          supabase.auth.getSession(),
+        const profile = await withTimeout(
+          fetchCurrentUser(),
           SESSION_BOOTSTRAP_TIMEOUT_MS,
           () => {
             sessionBootstrapTimedOut = true;
-            return { data: { session: null }, error: null };
+            return null;
           },
         );
 
-        if (sessionResult.error || !sessionResult.data.session?.user) {
+        if (!profile) {
           set({
             ready: true,
             mode: isGuestSession ? "guest" : null,
@@ -95,26 +108,20 @@ export const useSessionStore = create<SessionStore>()(
           return;
         }
 
-        const userId = sessionResult.data.session.user.id;
-        const profile = await withTimeout(fetchProfile(userId), SESSION_BOOTSTRAP_TIMEOUT_MS, () => null);
         set({
           ready: true,
           mode: "authenticated",
-          authUserId: userId,
-          profile: profile ?? null,
+          authUserId: profile.id,
+          profile,
           errorMessage: null,
         });
       },
       refreshProfile: async () => {
         const authUserId = get().authUserId;
-        if (!authUserId) {
-          return;
-        }
-
+        if (!authUserId) return;
+        const { fetchProfile } = await import("@/lib/account");
         const profile = await fetchProfile(authUserId);
-        set({
-          profile,
-        });
+        set({ profile });
       },
       clearSession: () =>
         set({

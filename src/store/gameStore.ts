@@ -130,18 +130,6 @@ function advanceToNextPlayerTurn(state: GameState) {
     message: `${state.players[nextPlayer].name}的回合开始。你可以直接打出 1 张塔罗牌，或先移动 1 步再决定是否出牌。`,
   };
 
-  const result = resolveWinner(nextState, state.currentPlayer);
-  if (result) {
-    return {
-      ...nextState,
-      phase: "gameover" as const,
-      winner: result.winner,
-      winReason: result.reason,
-      endedAt: Date.now(),
-      message: `${nextState.players[result.winner].name}获胜：${result.reason}`,
-    };
-  }
-
   return nextState;
 }
 
@@ -683,6 +671,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
       return;
     }
 
+    const result = resolveWinner(state, state.currentPlayer);
+    if (result) {
+      set({
+        ...state,
+        phase: "gameover",
+        winner: result.winner,
+        winReason: result.reason,
+        endedAt: Date.now(),
+        message: `${state.players[result.winner].name}获胜：${result.reason}`,
+      });
+      return;
+    }
+
     set(finishCurrentTurn({ ...state, message: "你选择不出牌，回合已结束。" }));
   },
 
@@ -1012,6 +1013,19 @@ export const useGameStore = create<GameStore>((set, get) => ({
   expireTurn: () => {
     const state = get();
     if (state.winner || Date.now() < state.turnEndsAt) {
+      return;
+    }
+
+    const timeoutResult = resolveWinner(state, state.currentPlayer);
+    if (timeoutResult) {
+      set({
+        ...state,
+        phase: "gameover",
+        winner: timeoutResult.winner,
+        winReason: timeoutResult.reason,
+        endedAt: Date.now(),
+        message: `${state.players[timeoutResult.winner].name}获胜：${timeoutResult.reason}`,
+      });
       return;
     }
 

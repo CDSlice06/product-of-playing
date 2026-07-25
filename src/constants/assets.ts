@@ -1,6 +1,11 @@
 import ASTROLOGER_SPRITE from "../assets/astrologer.png";
 import OCCULTIST_SPRITE from "../assets/occultist.png";
 import THORN_SPRITE from "../assets/thorn.png";
+import LOBBY_BG_IMG from "../assets/lobby-bg.png";
+import LOBBY_TITLE_IMG from "../assets/lobby-title-original.png";
+import ASTROLOGER_BANNER from "../assets/player-astrologer-banner-transparent.png";
+import OCCULTIST_BANNER from "../assets/player-occultist-banner-transparent.png";
+import START_BUTTON_IMG from "../assets/start-button-transparent.png";
 import type { TarotCardDefinition } from "@/data/tarotDeck";
 
 export const generateImageUrl = (prompt: string, size: string = "landscape_16_9") => {
@@ -11,7 +16,11 @@ export const ASSETS = {
   PLAYER_1_IDLE: ASTROLOGER_SPRITE,
   PLAYER_2_IDLE: OCCULTIST_SPRITE,
 
-  LOBBY_BG: generateImageUrl("2D pixel art background, dark epic fantasy tarot theme, floating stone island, glowing purple and blue lightning, dark stormy sky, gothic castle entrance, masterpiece", "landscape_16_9"),
+  LOBBY_BG: LOBBY_BG_IMG,
+  LOBBY_TITLE: LOBBY_TITLE_IMG,
+  ASTROLOGER_BANNER: ASTROLOGER_BANNER,
+  OCCULTIST_BANNER: OCCULTIST_BANNER,
+  START_BUTTON: START_BUTTON_IMG,
   DIVINATION_HERO: generateImageUrl("beautiful tarot divination altar, velvet table, glowing tarot cards spread in a fan, warm candlelight, celestial symbols, dreamy mystical atmosphere, elegant fantasy illustration for website hero banner", "landscape_16_9"),
   BATTLE_BG: generateImageUrl("2D pixel art background, dark epic fantasy tarot theme, floating chessboard in the void, glowing purple and blue lightning, mystical chains, dark stormy sky, masterpiece", "landscape_16_9"),
   FLOOR_TILE: generateImageUrl("2D pixel art, top-down hexagonal dungeon floor tile, dark gothic stone with faint glowing golden and purple runes, seamless texture", "square"),

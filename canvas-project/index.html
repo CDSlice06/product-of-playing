@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>星轨塔罗棋 | 双人星占策略桌游</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0818; font-family: "Microsoft YaHei", sans-serif; }
+canvas { display: block; image-rendering: auto; }
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<script src="engine/constants.js"></script>
+<script src="engine/game.js"></script>
+<script src="engine/ai.js"></script>
+<script src="engine/tarot.js"></script>
+<script>
+// ========== Audio Engine ==========
+const AudioEngine = {
+  ctx: null,
+  currentMusic: null,
+  currentSource: null,
+  gainNode: null,
+  started: false,
+  enabled: true,
+
+  init() {
+    try {
+      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      this.gainNode = this.ctx.createGain();
+      this.gainNode.gain.value = 0.4;
+      this.gainNode.connect(this.ctx.destination);
+    } catch(e) {}
+  },
+
+  async playMusic(src) {
+    if (!this.ctx || !this.enabled) return;
+    this.stopMusic();
+    try {
+      const resp = await fetch(src);
+      const buf = await resp.arrayBuffer();
+      const audioBuf = await this.ctx.decodeAudioData(buf);
+      this.currentSource = this.ctx.createBufferSource();
+      this.currentSource.buffer = audioBuf;
+      this.currentSource.loop = true;
+      this.currentSource.connect(this.gainNode);
+      this.currentSource.start();
+      this.currentMusic = src;
+      if (!this.started && this.ctx.state === 'suspended') {
+        this.ctx.resume();
+        this.started = true;
+      }
+    } catch(e) {}
+  },
+
+  stopMusic() {
+    if (this.currentSource) {
+      try { this.currentSource.stop(); } catch(e) {}
+      this.currentSource = null;
+    }
+  },
+
+  switchScene(scene) {
+    const map = { lobby: 'assets/lobby.mp3', battle: 'assets/battle.mp3', divination: 'assets/divination.mp3' };
+    const src = map[scene];
+    if (src && (!this.currentMusic || !this.currentMusic.endsWith(src.split('/').pop()))) {
+      this.playMusic(src);
+    }
+  },
+
+  toggle() {
+    this.enabled = !this.enabled;
+    if (this.enabled) { this.gainNode.gain.value = 0.4; }
+    else { this.gainNode.gain.value = 0; }
+    return this.enabled;
+  }
+};
+
+// Init audio on first user interaction
+document.addEventListener('click', () => { if (!AudioEngine.started) AudioEngine.init(); }, { once: true });
+</script>
+<script>
+// ========== Canvas Setup ==========
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resize() {
+  W = canvas.width = window.innerWidth * window.devicePixelRatio;
+  H = canvas.height = window.innerHeight * window.devicePixelRatio;
+  ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+  W = window.innerWidth; H = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ========== Assets ==========
+const images = {};
+const IMG_LIST = [
+  'lobby-title', 'astrologer-banner', 'occultist-banner',
+  'lobby-bg', 'astrologer', 'occultist', 'thorn'
+];
+
+let assetsLoaded = false;
+function loadAssets() {
+  return Promise.all(IMG_LIST.map(name => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => { images[name] = img; resolve(); };
+      img.onerror = () => { resolve(); }; // don't block on missing
+      img.src = 'assets/' + name + '.png';
+    });
+  }));
+}
+
+// ========== App State ==========
+let scene = 'auth';
+let prevScene = 'auth';
+function setScene(s) {
+  prevScene = scene;
+  scene = s;
+  if (s === 'lobby') AudioEngine.switchScene('lobby');
+  else if (s === 'battle') AudioEngine.switchScene('battle');
+  else if (s === 'divination') AudioEngine.switchScene('divination');
+  else AudioEngine.stopMusic();
+}
+let game = null;          // GameState instance
+let divState = null;      // Tarot divination state
+let animFrame = 0;
+let mouse = { x: 0, y: 0, down: false };
+let clickTargets = [];    // Interactive regions per frame
+
+// Auth state
+let authView = 'login'; // login | register
+let authUsername = '';
+let authPassword = '';
+let authMessage = '';
+let authActiveField = null; // 'username' | 'password' | null
+let guestMode = false;
+
+// ========== Drawing Helpers ==========
+function drawRect(x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+}
+
+function drawBorderRect(x, y, w, h, color, width = 2) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.strokeRect(x, y, w, h);
+}
+
+function drawText(text, x, y, color, fontSize = 16, align = 'left', font = 'bold 16px "Microsoft YaHei"') {
+  ctx.fillStyle = color;
+  ctx.font = font;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x, y);
+}
+
+function drawTexth(text, x, y, color, fontSize = 16) {
+  drawText(text, x, y, color, fontSize, 'center');
+}
+
+function drawImage(img, x, y, w, h) {
+  if (!img) return;
+  try { ctx.drawImage(img, x, y, w, h); } catch(e) {}
+}
+
+function buttonRect(x, y, w, h, text, color, textColor) {
+  drawRect(x, y, w, h, color);
+  drawBorderRect(x, y, w, h, '#888', 2);
+  drawTexth(text, x + w/2, y + h/2, textColor);
+  clickTargets.push({ x, y, w, h, action: text });
+}
+
+// ========== Auth Scene ==========
+function drawAuthScene() {
+  clickTargets = [];
+  // Background
+  ctx.fillStyle = '#0a0818';
+  ctx.fillRect(0, 0, W, H);
+
+  // Draw background image
+  if (images['lobby-bg']) {
+    const bw = W, bh = W * (images['lobby-bg'].height / images['lobby-bg'].width);
+    drawImage(images['lobby-bg'], 0, (H - bh) / 2, bw, bh);
+  }
+
+  // Dark overlay
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Title image (top center)
+  if (images['lobby-title']) {
+    const tw = W * 0.55;
+    const th = tw * (images['lobby-title'].height / images['lobby-title'].width);
+    drawImage(images['lobby-title'], (W - tw) / 2, -H * 0.07, tw, th);
+  }
+
+  // Left banner (astrologer)
+  if (images['astrologer-banner']) {
+    const bw = W * 0.045;
+    const bh = bw * (images['astrologer-banner'].height / images['astrologer-banner'].width);
+    drawImage(images['astrologer-banner'], W * 0.05, H * 0.24, bw, bh);
+  }
+
+  // Right banner (occultist)
+  if (images['occultist-banner']) {
+    const bw = W * 0.045;
+    const bh = bw * (images['occultist-banner'].height / images['occultist-banner'].width);
+    drawImage(images['occultist-banner'], W * 0.95 - bw, H * 0.24, bw, bh);
+  }
+
+  // ---- Start Game Button (center) ----
+  const btnW = Math.min(W * 0.35, 400);
+  const btnH = 64;
+  const btnX = (W - btnW) / 2;
+  const btnY = H * 0.55;
+
+  // Button shadow
+  drawRect(btnX + 6, btnY + 6, btnW, btnH, 'rgba(0,0,0,0.4)');
+  // Button body
+  drawRect(btnX, btnY, btnW, btnH, '#6b4c10');
+  drawRect(btnX, btnY, btnW, btnH - 4, '#c4960c');
+  drawBorderRect(btnX, btnY, btnW, btnH, '#8b6914', 2);
+  // Button text
+  drawTexth('开 始 游 戏', btnX + btnW/2, btnY + btnH/2, '#fff', 28);
+  clickTargets.push({ x: btnX, y: btnY, w: btnW, h: btnH, action: 'guest' });
+}
+
+// ========== Lobby Scene ==========
+function drawLobbyScene() {
+  clickTargets = [];
+  ctx.fillStyle = '#0a0818';
+  ctx.fillRect(0, 0, W, H);
+
+  // BG with blur
+  if (images['lobby-bg']) {
+    const bw = W, bh = W * (images['lobby-bg'].height / images['lobby-bg'].width);
+    drawImage(images['lobby-bg'], 0, (H - bh) / 2, bw, bh);
+  }
+
+  // Dark overlay
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Title (faded)
+  if (images['lobby-title']) {
+    const tw = W * 0.4;
+    const th = tw * (images['lobby-title'].height / images['lobby-title'].width);
+    ctx.globalAlpha = 0.3;
+    drawImage(images['lobby-title'], (W - tw)/2, H*0.02, tw, th);
+    ctx.globalAlpha = 1;
+  }
+
+  // ---- Right Side: Card-style Menu ----
+  const menuW = Math.min(W * 0.35, 420);
+  const menuH = H * 0.85;
+  const menuX = W - menuW - 30;
+  const menuY = (H - menuH) / 2;
+
+  // Profile header
+  const ph = 60;
+  drawRect(menuX, menuY, menuW, ph, 'rgba(0,0,0,0.6)');
+  drawBorderRect(menuX, menuY, menuW, ph, '#666');
+  drawTexth('占星师', menuX + 80, menuY + 22, '#f0b90b', 16);
+  drawTexth('游客模式 | 知灵 | 0分', menuX + 80, menuY + 44, '#888', 11);
+
+  let cardY = menuY + ph + 10;
+  const cw = menuW - 20;
+  const ch = 90;
+
+  // Card 1: Tarot Divination
+  drawRect(menuX + 10, cardY, cw, ch, 'rgba(80,20,120,0.5)');
+  drawBorderRect(menuX + 10, cardY, cw, ch, 'rgba(200,100,255,0.5)');
+  drawTexth('塔罗占卜', menuX + menuW/2, cardY + 25, '#fff', 18);
+  drawTexth('完整78张塔罗牌，按洗牌、切牌、抽牌、解读流程进行占卜', menuX + menuW/2, cardY + 55, '#d8b4ff', 11);
+  clickTargets.push({ x: menuX + 10, y: cardY, w: cw, h: ch, action: 'goDiv' });
+
+  cardY += ch + 8;
+
+  // Card 2: AI Battle
+  drawRect(menuX + 10, cardY, cw, ch, 'rgba(0,60,100,0.5)');
+  drawBorderRect(menuX + 10, cardY, cw, ch, 'rgba(50,200,255,0.5)');
+  drawTexth('人机练习', menuX + menuW/2, cardY + 25, '#fff', 18);
+  drawTexth('挑战命运傀儡，选择简单/中等/困难难度', menuX + menuW/2, cardY + 55, '#88ddff', 11);
+  clickTargets.push({ x: menuX + 10, y: cardY, w: cw, h: ch, action: 'goPVE' });
+
+  cardY += ch + 8;
+
+  // Card 3: Local PVP
+  drawRect(menuX + 10, cardY, cw, ch, 'rgba(0,80,60,0.5)');
+  drawBorderRect(menuX + 10, cardY, cw, ch, 'rgba(50,255,180,0.5)');
+  drawTexth('本地双人对战', menuX + menuW/2, cardY + 25, '#fff', 18);
+  drawTexth('同屏线下对战，轮流操作', menuX + menuW/2, cardY + 55, '#88ffcc', 11);
+  clickTargets.push({ x: menuX + 10, y: cardY, w: cw, h: ch, action: 'goPVP' });
+
+  cardY += ch + 8;
+
+  // Card 4: Gallery
+  drawRect(menuX + 10, cardY, cw, ch * 0.6, 'rgba(80,60,0,0.5)');
+  drawBorderRect(menuX + 10, cardY, cw, ch * 0.6, 'rgba(255,200,50,0.5)');
+  drawTexth('命运塔罗图鉴', menuX + menuW/2, cardY + 25, '#fff', 18);
+  drawTexth('查看所有战斗卡牌效果', menuX + menuW/2, cardY + 40, '#ffd700', 11);
+  clickTargets.push({ x: menuX + 10, y: cardY, w: cw, h: ch * 0.6, action: 'goGallery' });
+
+  // ---- Left Side: Character Sprites ----
+  // P1 sprite
+  if (images['astrologer']) {
+    const sw = W * 0.15;
+    const sh = sw * (images['astrologer'].height / images['astrologer'].width);
+    drawImage(images['astrologer'], W * 0.05, H - sh - 20, sw, sh);
+  }
+
+  // P2 sprite
+  if (images['occultist']) {
+    const sw = W * 0.15;
+    const sh = sw * (images['occultist'].height / images['occultist'].width);
+    drawImage(images['occultist'], W * 0.22, H - sh - 20, sw, sh);
+  }
+}
+
+// ========== Battle Scene ==========
+function hexCorner(cx, cy, size, i) {
+  const angle = Math.PI / 180 * (60 * i - 30);
+  return { x: cx + size * Math.cos(angle), y: cy + size * Math.sin(angle) };
+}
+
+function drawHex(cx, cy, size, fill, stroke, alpha = 1) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = fill;
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  const p0 = hexCorner(cx, cy, size, 0);
+  ctx.moveTo(p0.x, p0.y);
+  for (let i = 1; i < 6; i++) {
+    const p = hexCorner(cx, cy, size, i);
+    ctx.lineTo(p.x, p.y);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function hexToPixel(r, c, originX, originY, hexSize) {
+  const x = originX + c * hexSize * 1.5 + (r % 2 === 0 ? 0 : hexSize * 0.75);
+  const y = originY + r * hexSize * Math.sqrt(3) * 0.5;
+  return { x, y };
+}
+
+function pixelToHex(mx, my, originX, originY, hexSize) {
+  let minDist = Infinity, closestR = 0, closestC = 0;
+  for (let r = 0; r < BOARD_SIZE; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      const { x, y } = hexToPixel(r, c, originX, originY, hexSize);
+      const dist = (mx - x) ** 2 + (my - y) ** 2;
+      if (dist < minDist) { minDist = dist; closestR = r; closestC = c; }
+    }
+  }
+  return { r: closestR, c: closestC };
+}
+
+function drawBattleScene() {
+  if (!game) return;
+  clickTargets = [];
+
+  ctx.fillStyle = '#0a0818';
+  ctx.fillRect(0, 0, W, H);
+
+  // Dark grid bg
+  ctx.strokeStyle = 'rgba(100,100,140,0.1)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < W; i += 40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, H); ctx.stroke(); }
+  for (let j = 0; j < H; j += 40) { ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(W, j); ctx.stroke(); }
+
+  // Board area
+  const hexSize = Math.min(W * 0.035, H * 0.04);
+  const boardW = BOARD_SIZE * hexSize * 1.6;
+  const boardH = BOARD_SIZE * hexSize * 1.4;
+  const originX = (W - boardW) / 2 + hexSize;
+  const originY = H * 0.1;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(originX - hexSize, originY - hexSize, boardW + hexSize, boardH + hexSize);
+  ctx.clip();
+
+  // Draw all hex cells
+  for (let r = 0; r < BOARD_SIZE; r++) {
+    for (let c = 0; c < BOARD_SIZE; c++) {
+      const { x, y } = hexToPixel(r, c, originX, originY, hexSize);
+      let fill = 'rgba(30,30,50,0.6)';
+      const occupant = game.getOccupant(r, c);
+      const isHighlighted = game.highlightedCells.some(h => h.r === r && h.c === c);
+
+      if (occupant?.type === 'player1') fill = '#7b5ea7';
+      else if (occupant?.type === 'player2') fill = '#3d7a6e';
+      else if (occupant?.type === 'obstacle') fill = '#553030';
+      else if (isHighlighted) fill = 'rgba(255,215,0,0.4)';
+
+      drawHex(x, y, hexSize * 0.9, fill, isHighlighted ? '#ffd700' : 'rgba(80,80,120,0.5)');
+
+      // Draw player emoji
+      if (occupant?.type === 'player1') {
+        drawTexth('✦', x, y, '#e8d5ff', hexSize * 0.6);
+      } else if (occupant?.type === 'player2') {
+        drawTexth('◈', x, y, '#a0ffe8', hexSize * 0.6);
+      } else if (occupant?.type === 'obstacle') {
+        drawTexth('⛧', x, y, '#cc6666', hexSize * 0.5);
+      } else if (isHighlighted) {
+        clickTargets.push({
+          x: x - hexSize * 0.9, y: y - hexSize * 0.9,
+          w: hexSize * 1.8, h: hexSize * 1.8,
+          action: 'cellClick', r, c
+        });
+      }
+    }
+  }
+
+  ctx.restore();
+
+  // ---- Player status bars ----
+  const barY = H * 0.02, barW = W * 0.25, barH = 40;
+  // P1 bar (left)
+  drawRect(W * 0.1, barY, barW, barH, 'rgba(120,90,160,0.4)');
+  drawBorderRect(W * 0.1, barY, barW, barH, '#7b5ea7');
+  drawText('✦ 占星师', W * 0.1 + 10, barY + barH/2, '#e8d5ff', 14);
+  const p1Cards = game.p1.hand.length;
+  drawText(`手牌:${p1Cards}`, W * 0.1 + barW - 100, barY + barH/2, '#ccc', 12);
+  if (game.currentPlayer === 'player1') {
+    drawTexth('⚔ 当前回合', W * 0.1 + barW/2, barY + barH + 12, '#ffd700', 11);
+  }
+
+  // P2 bar (right)
+  drawRect(W * 0.65, barY, barW, barH, 'rgba(60,120,100,0.4)');
+  drawBorderRect(W * 0.65, barY, barW, barH, '#3d7a6e');
+  drawText('◈ 秘术师', W * 0.65 + 10, barY + barH/2, '#a0ffe8', 14);
+  const p2Cards = game.p2.hand.length;
+  drawText(`手牌:${p2Cards}`, W * 0.65 + barW - 100, barY + barH/2, '#ccc', 12);
+  if (game.currentPlayer === 'player2') {
+    drawTexth('⚔ 当前回合', W * 0.65 + barW/2, barY + barH + 12, '#ffd700', 11);
+  }
+
+  // ---- Hand cards ----
+  if (game.phase === 'skill' || game.phase === 'move' || game.phase === 'discard') {
+    const player = game.currentPlayer === 'player1' ? game.p1 : game.p2;
+    const cardW = 80, cardH = 110, cardGap = 12;
+    const totalW = player.hand.length * (cardW + cardGap) - cardGap;
+    const cardX = (W - totalW) / 2;
+    const cardY = H - cardH - 20;
+
+    for (let i = 0; i < player.hand.length; i++) {
+      const card = player.hand[i];
+      const cx = cardX + i * (cardW + cardGap);
+      const info = CARD_TYPES[card];
+      const isSelected = game.selectedCard === i;
+
+      drawRect(cx, cardY, cardW, cardH, isSelected ? 'rgba(120,90,160,0.8)' : 'rgba(30,20,50,0.8)');
+      drawBorderRect(cx, cardY, cardW, cardH, isSelected ? '#ffd700' : '#666');
+
+      drawTexth(info?.name?.slice(0, 4) || card, cx + cardW/2, cardY + 20, isSelected ? '#fff' : '#ccc', 11);
+      drawTexth(info?.desc?.slice(0, 6) || '', cx + cardW/2, cardY + 50, '#999', 9);
+
+      if (game.phase === 'discard' && game.pendingDrawCard) {
+        // For discard phase, click to discard
+        clickTargets.push({ x: cx, y: cardY, w: cardW, h: cardH, action: 'discard', idx: i });
+      } else {
+        clickTargets.push({ x: cx, y: cardY, w: cardW, h: cardH, action: 'selectCard', idx: i });
+      }
+    }
+  }
+
+  // ---- End Turn button ----
+  if (game.phase === 'skill' && game.currentPlayer === 'player1') {
+    const ebW = 120, ebH = 36;
+    const ebX = W - ebW - 30, ebY = H - ebH - 30;
+    drawRect(ebX, ebY, ebW, ebH, '#553a00');
+    drawBorderRect(ebX, ebY, ebW, ebH, '#aa7700');
+    drawTexth('结束回合', ebX + ebW/2, ebY + ebH/2, '#ffd700', 14);
+    clickTargets.push({ x: ebX, y: ebY, w: ebW, h: ebH, action: 'endTurn' });
+  }
+
+  // ---- Timer ----
+  if (game.turnEndsAt) {
+    const remaining = Math.max(0, Math.ceil((game.turnEndsAt - Date.now()) / 1000));
+    const timerColor = remaining < 10 ? '#ff4444' : remaining < 20 ? '#ffaa00' : '#aaa';
+    drawTexth(`${Math.floor(remaining/60)}:${String(remaining%60).padStart(2,'0')}`, W/2, 20, timerColor, 18);
+  }
+
+  // ---- Message ----
+  if (game.message) {
+    drawTexth(game.message, W/2, H * 0.92, '#fff', 13);
+  }
+
+  // ---- Game Over ----
+  if (game.phase === 'gameover') {
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(0, 0, W, H);
+
+    const winner = game.getPlayer(game.winner);
+    drawTexth(`${winner.name}获胜！`, W/2, H/2 - 30, '#ffd700', 36);
+    drawTexth(game.winReason, W/2, H/2 + 20, '#ccc', 16);
+
+    const btnW = 200, btnH = 44;
+    const btnX = (W - btnW) / 2, btnY = H/2 + 60;
+    drawRect(btnX, btnY, btnW, btnH, '#553a00');
+    drawBorderRect(btnX, btnY, btnW, btnH, '#ffd700');
+    drawTexth('返回大厅', btnX + btnW/2, btnY + btnH/2, '#ffd700', 18);
+    clickTargets.push({ x: btnX, y: btnY, w: btnW, h: btnH, action: 'backToLobby' });
+  }
+}
+
+// ========== Divination Scene ==========
+function drawDivinationScene() {
+  clickTargets = [];
+  ctx.fillStyle = '#0a0818';
+  ctx.fillRect(0, 0, W, H);
+
+  if (!divState) {
+    // Init divination state
+    divState = {
+      stage: 'select', // select | shuffle | cut | draw | read
+      spread: TAROT_SPREADS[0],
+      method: 'mahjong',
+      deck: shuffleDeck([...FULL_TAROT_DECK]),
+      cards: [],
+      flipped: [],
+      reading: '',
+    };
+  }
+
+  drawTexth('塔罗占卜', W/2, 30, '#ffd700', 24);
+  drawTexth('选择牌阵，开始占卜', W/2, 60, '#888', 13);
+
+  // Spread selection
+  const spreadY = 100;
+  for (let i = 0; i < TAROT_SPREADS.length; i++) {
+    const s = TAROT_SPREADS[i];
+    const sx = W * 0.1 + i * W * 0.28;
+    const sw = W * 0.24;
+    const sh = 120;
+    const isSelected = divState.spread.id === s.id;
+
+    drawRect(sx, spreadY, sw, sh, isSelected ? 'rgba(150,100,255,0.3)' : 'rgba(30,20,50,0.5)');
+    drawBorderRect(sx, spreadY, sw, sh, isSelected ? '#9966ff' : '#555');
+    drawTexth(s.name, sx + sw/2, spreadY + 30, '#fff', 16);
+    drawTexth(`${s.positions.length}张牌`, sx + sw/2, spreadY + 60, '#aaa', 12);
+    drawTexth(s.desc, sx + sw/2, spreadY + 90, '#888', 10);
+    clickTargets.push({ x: sx, y: spreadY, w: sw, h: sh, action: 'selectSpread', id: s.id });
+  }
+
+  // Start button
+  const startY = spreadY + 150;
+  const sbW = 200, sbH = 44;
+  const sbX = (W - sbW) / 2;
+  drawRect(sbX, startY, sbW, sbH, '#4a2080');
+  drawBorderRect(sbX, startY, sbW, sbH, '#9966ff');
+  drawTexth('开始占卜', sbX + sbW/2, startY + sbH/2, '#fff', 18);
+  clickTargets.push({ x: sbX, y: startY, w: sbW, h: sbH, action: 'startDiv' });
+
+  if (divState.stage === 'draw') {
+    // Draw the dealt cards
+    const cards = divState.cards || [];
+    const cardW = 100, cardH = 150, gap = 20;
+    const totalW = cards.length * (cardW + gap) - gap;
+    const cx = (W - totalW) / 2, cy = H * 0.5;
+
+    for (let i = 0; i < cards.length; i++) {
+      const cardX = cx + i * (cardW + gap);
+      const flipped = divState.flipped.includes(i);
+
+      drawRect(cardX, cy, cardW, cardH, flipped ? 'rgba(60,30,80,0.9)' : 'rgba(20,10,40,0.9)');
+      drawBorderRect(cardX, cy, cardW, cardH, flipped ? '#9966ff' : '#444');
+
+      if (flipped) {
+        drawTexth(cards[i].name, cardX + cardW/2, cy + 30, '#ffcc00', 13);
+        drawTexth(cards[i].rank || '', cardX + cardW/2, cy + 60, '#fff', 36);
+        drawText(cards[i].arcana === 'major' ? '大阿尔卡那' : '小阿尔卡那', cardX + 10, cy + 120, '#888', 9);
+      } else {
+        drawTexth('✦', cardX + cardW/2, cy + cardH/2, '#9966ff', 40);
+      }
+
+      if (!flipped) {
+        clickTargets.push({ x: cardX, y: cy, w: cardW, h: cardH, action: 'flipCard', idx: i });
+      }
+    }
+
+    // Reading
+    if (divState.reading) {
+      ctx.fillStyle = 'rgba(0,0,0,0.8)';
+      ctx.fillRect(cx - 20, cy + cardH + 20, totalW + 40, Math.min(H - cy - cardH - 60, 200));
+      drawTexth(divState.reading.slice(0, 150) + '...', W/2, cy + cardH + 50, '#ccc', 12);
+    }
+  }
+
+  // Back button
+  const backW = 100, backH = 36;
+  drawRect(10, 10, backW, backH, '#333');
+  drawBorderRect(10, 10, backW, backH, '#666');
+  drawTexth('← 返回', 10 + backW/2, 10 + backH/2, '#ccc', 14);
+  clickTargets.push({ x: 10, y: 10, w: backW, h: backH, action: 'backToLobby' });
+}
+
+// ========== Gallery Scene ==========
+function drawGalleryScene() {
+  clickTargets = [];
+  ctx.fillStyle = '#0a0818';
+  ctx.fillRect(0, 0, W, H);
+
+  drawTexth('命运塔罗图鉴', W/2, 30, '#ffd700', 24);
+
+  const cards = Object.entries(CARD_TYPES);
+  const cols = 3;
+  const cardW = Math.min(W * 0.28, 280);
+  const cardH = 160;
+  const gapX = 20, gapY = 20;
+  const totalW = cols * cardW + (cols - 1) * gapX;
+  const startX = (W - totalW) / 2;
+  let cy = 80;
+
+  for (let i = 0; i < cards.length; i++) {
+    const [key, info] = cards[i];
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const cx = startX + col * (cardW + gapX);
+    const y = cy + row * (cardH + gapY);
+
+    drawRect(cx, y, cardW, cardH, 'rgba(30,20,50,0.7)');
+    drawBorderRect(cx, y, cardW, cardH, '#555');
+
+    drawTexth(info.name, cx + cardW/2, y + 30, '#ffd700', 14);
+    drawTexth(info.name.split(' ').pop() || key, cx + cardW/2, y + 55, '#fff', 20);
+    drawTexth(info.desc, cx + cardW/2, y + 90, '#aaa', 11);
+  }
+
+  // Back button
+  const backW = 100, backH = 36;
+  drawRect(10, 10, backW, backH, '#333');
+  drawBorderRect(10, 10, backW, backH, '#666');
+  drawTexth('← 返回', 10 + backW/2, 10 + backH/2, '#ccc', 14);
+  clickTargets.push({ x: 10, y: 10, w: backW, h: backH, action: 'backToLobby' });
+}
+
+// ========== Input Handling ==========
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  // Find clicked target
+  for (const t of clickTargets) {
+    if (mx >= t.x && mx <= t.x + t.w && my >= t.y && my <= t.y + t.h) {
+      handleAction(t, mx, my);
+      return;
+    }
+  }
+});
+
+function handleAction(target) {
+  const action = target.action;
+  // Auth actions
+  if (action === 'registerTab') { authView = 'register'; return; }
+  if (action === 'loginTab') { authView = 'login'; return; }
+  if (action === 'focusUsername') { authActiveField = 'username'; return; }
+  if (action === 'focusPassword') { authActiveField = 'password'; return; }
+  if (action === 'submit') { handleAuthSubmit(); return; }
+  if (action === 'guest') { setScene('lobby'); guestMode = true; return; }
+
+  // Lobby actions
+  if (action === 'goPVE') { startBattle('pve'); return; }
+  if (action === 'goPVP') { startBattle('pvp'); return; }
+  if (action === 'goDiv') { setScene('divination'); divState = null; return; }
+  if (action === 'goGallery') { setScene('gallery'); return; }
+
+  // Battle actions
+  if (action === 'selectCard') { 
+    game.selectCard(target.idx);
+    if (game.phase === 'fate') return;
+    if (game.currentPlayer === 'player2' && game.phase === 'skill') {
+      setTimeout(() => executeAiTurn(game), 500);
+    }
+    return;
+  }
+  if (action === 'discard') { game.discardCard(target.idx); return; }
+  if (action === 'endTurn') { game.endTurn(); executeAITurnIfNeeded(); return; }
+  if (action === 'cellClick') {
+    if (game.phase === 'move' && game.selectedCard === null) {
+      game.movePlayer(game.currentPlayer, target.r, target.c);
+    } else if (game.selectedCard !== null) {
+      game.useCardOnTarget(target.r, target.c);
+    }
+    executeAITurnIfNeeded();
+    return;
+  }
+  if (action === 'backToLobby') { setScene('lobby'); game = null; return; }
+
+  // Divination actions
+  if (action === 'selectSpread') {
+    const s = TAROT_SPREADS.find(sp => sp.id === target.id);
+    if (s) divState.spread = s;
+    return;
+  }
+  if (action === 'startDiv') {
+    divState.deck = shuffleDeck([...FULL_TAROT_DECK]);
+    divState.cards = divState.deck.slice(0, divState.spread.positions.length);
+    divState.flipped = [];
+    divState.stage = 'draw';
+    return;
+  }
+  if (action === 'flipCard') {
+    if (!divState.flipped.includes(target.idx)) {
+      divState.flipped.push(target.idx);
+      if (divState.flipped.length === divState.cards.length) {
+        divState.reading = divState.cards.map((c, i) => {
+          const pos = divState.spread.positions[i];
+          return `${pos.label}：${c.name} - ${c.upright || '保持开放的心态看待这一切。'}`;
+        }).join('\n');
+      }
+    }
+    return;
+  }
+  if (action === 'toggleSound') {
+    AudioEngine.toggle();
+    if (AudioEngine.enabled && !AudioEngine.currentMusic) {
+      AudioEngine.switchScene(scene);
+    }
+    return;
+  }
+}
+
+function handleAuthSubmit() {
+  if (!authUsername.trim() || authPassword.length < 6) {
+    authMessage = '用户名不能为空，密码至少6位。';
+    return;
+  }
+  // Simple local auth - accept anything
+  authMessage = '';
+  setScene('lobby');
+  guestMode = false;
+}
+
+function startBattle(mode) {
+  game = new GameState();
+  game.gameMode = mode;
+  game.aiDifficulty = 'medium';
+  game.startGame();
+  game.currentPlayer = 'player1'; // Human goes first
+  game.p1.name = '占星师';
+  game.p2.name = mode === 'pve' ? '命运傀儡' : '秘术师';
+  game.message = '占星师先手。请点击相邻格子移动。';
+  setScene('battle');
+}
+
+function executeAITurnIfNeeded() {
+  if (game && game.gameMode === 'pve' && game.phase !== 'gameover') {
+    if (game.currentPlayer === 'player2') {
+      setTimeout(() => {
+        if (game.phase !== 'gameover') {
+          executeAiTurn(game);
+        }
+      }, 600);
+    }
+  }
+}
+
+// Keyboard input for auth
+document.addEventListener('keydown', (e) => {
+  if (scene !== 'auth') return;
+  if (e.key === 'Enter') { handleAuthSubmit(); return; }
+  if (!authActiveField) return;
+
+  if (e.key === 'Backspace') {
+    if (authActiveField === 'username') authUsername = authUsername.slice(0, -1);
+    else authPassword = authPassword.slice(0, -1);
+  } else if (e.key.length === 1) {
+    if (authActiveField === 'username') authUsername += e.key;
+    else authPassword += e.key;
+  }
+});
+
+// ========== Main Loop ==========
+function gameLoop() {
+  animFrame++;
+
+  // Update timer / check timeout
+  if (scene === 'battle' && game) {
+    game.checkTurnTimeout();
+  }
+
+  // Render current scene
+  switch (scene) {
+    case 'auth': drawAuthScene(); break;
+    case 'lobby': drawLobbyScene(); break;
+    case 'battle': drawBattleScene(); break;
+    case 'divination': drawDivinationScene(); break;
+    case 'gallery': drawGalleryScene(); break;
+  }
+
+  // Sound toggle (top-right)
+  const label = AudioEngine.enabled ? '🔊 音效' : '🔇 静音';
+  const sw = 80, sh = 30, sx = W - sw - 15, sy = 10;
+  drawRect(sx, sy, sw, sh, 'rgba(0,0,0,0.5)');
+  drawBorderRect(sx, sy, sw, sh, '#555');
+  drawTexth(label, sx + sw/2, sy + sh/2, '#ccc', 11);
+  clickTargets.push({ x: sx, y: sy, w: sw, h: sh, action: 'toggleSound' });
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ========== Init ==========
+
+// ========== Init ==========
+loadAssets().then(() => {
+  assetsLoaded = true;
+  gameLoop();
+});
+</script>
+</body>
+</html>

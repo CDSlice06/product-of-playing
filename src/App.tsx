@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { HashRouter as Router, Navigate, Route, Routes } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
+import { getToken, clearToken } from "@/lib/api";
 import Auth from "@/pages/Auth";
 import Home from "@/pages/Home";
 import Battle from "@/pages/Battle";
@@ -12,6 +12,7 @@ import RoomWait from "@/pages/RoomWait";
 import Rooms from "@/pages/Rooms";
 import TarotDivination from "@/pages/TarotDivination";
 import MobileOrientationGuard from "@/components/MobileOrientationGuard";
+import SoundToggle from "@/components/SoundToggle";
 import { useSessionStore } from "@/store/sessionStore";
 
 function RootRedirect() {
@@ -73,23 +74,23 @@ export default function App() {
 
   useEffect(() => {
     hydrateFromSupabase();
-    const { data } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === "SIGNED_OUT") {
-        clearSession();
-        return;
-      }
 
-      await hydrateFromSupabase();
-    });
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "arcane-token" && !e.newValue) {
+        clearSession();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
 
     return () => {
-      data.subscription.unsubscribe();
+      window.removeEventListener("storage", handleStorage);
     };
   }, [clearSession, hydrateFromSupabase]);
 
   return (
     <Router>
       <MobileOrientationGuard />
+      <SoundToggle />
       <Routes>
         <Route path="/" element={<RootRedirect />} />
         <Route path="/auth" element={<Auth />} />

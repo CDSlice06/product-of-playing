@@ -697,7 +697,25 @@ export default function Battle() {
       )}
 
       <div className="battle-layout relative z-10">
-        <div className="flex-1 min-w-0 h-full flex flex-col bg-black/40 pixel-panel p-2 sm:p-4 gap-2 sm:gap-4 overflow-hidden">
+        <aside className="battle-left-panel bg-black/60 pixel-panel p-2 sm:p-4">
+          <SkillBar
+            hand={visibleHandOwner.hand}
+            selectedCard={state.selectedCard}
+            phase={state.phase === "fate" ? "move" : state.phase}
+            pendingDrawCard={state.pendingDrawCard}
+            onSelectCard={(card) => {
+              if (!interactionLocked) state.selectCard(card);
+            }}
+            onCancelCard={() => {
+              if (!interactionLocked) state.cancelSelectedCard();
+            }}
+            onSkipSkill={() => {
+              if (!interactionLocked) state.skipSkillPhase();
+            }}
+          />
+        </aside>
+
+        <div className="battle-board-area flex-1 min-w-0 h-full flex flex-col bg-black/40 pixel-panel p-2 sm:p-4 gap-2 sm:gap-4 overflow-hidden">
           <div className="flex-none w-full z-20">
             <PlayerStatusBar currentPlayer={state.currentPlayer} remainingSeconds={remainingSeconds} players={state.players} />
           </div>
@@ -713,33 +731,15 @@ export default function Battle() {
           </div>
         </div>
 
-        <aside className="battle-sidebar md:w-[280px] sm:w-[320px] lg:w-[380px] md:h-full shrink-0 flex flex-col bg-black/60 pixel-panel p-2 sm:p-4 min-h-0">
-          <div className="flex-1 min-h-0 overflow-y-auto pixel-scrollbar pr-1 sm:pr-2">
-            <SkillBar
-              hand={visibleHandOwner.hand}
-              selectedCard={state.selectedCard}
-              phase={state.phase === "fate" ? "move" : state.phase}
-              pendingDrawCard={state.pendingDrawCard}
-              onSelectCard={(card) => {
-                if (!interactionLocked) state.selectCard(card);
-              }}
-              onCancelCard={() => {
-                if (!interactionLocked) state.cancelSelectedCard();
-              }}
-              onSkipSkill={() => {
-                if (!interactionLocked) state.skipSkillPhase();
-              }}
-            />
-
-            <div className="mt-4 pt-4 border-t-2 border-gray-700">
-              <h3 className="text-amber-400 font-bold mb-2 text-shadow-pixel text-sm">战斗日志</h3>
-              <div className="max-h-[150px] overflow-y-auto pixel-scrollbar space-y-2 pr-1">
-                {[...state.battleLog].reverse().map((entry) => (
-                  <div key={entry.id} className="text-[10px] leading-tight text-gray-300 bg-black/40 p-1.5 border border-gray-800 rounded">
-                    <span className="text-blue-300">[{entry.type}]</span> {entry.text}
-                  </div>
-                ))}
-              </div>
+        <aside className="battle-right-panel bg-black/60 pixel-panel p-2 sm:p-4">
+          <div className="battle-log-panel">
+            <h3 className="text-amber-400 font-bold mb-2 text-shadow-pixel text-sm">战斗日志</h3>
+            <div className="max-h-[300px] lg:max-h-[400px] overflow-y-auto pixel-scrollbar space-y-2 pr-1">
+              {[...state.battleLog].reverse().map((entry) => (
+                <div key={entry.id} className="text-[10px] leading-tight text-gray-300 bg-black/40 p-1.5 border border-gray-800 rounded">
+                  <span className="text-blue-300">[{entry.type}]</span> {entry.text}
+                </div>
+              ))}
             </div>
           </div>
         </aside>

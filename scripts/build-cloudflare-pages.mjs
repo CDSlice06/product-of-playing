@@ -132,6 +132,7 @@ async function buildOutput() {
   await mkdir(gameDir, { recursive: true });
   await cp(path.join(distDir, "assets"), path.join(gameDir, "assets"), { recursive: true });
   await cp(path.join(distDir, "favicon.svg"), path.join(gameDir, "favicon.svg"));
+  await cp(path.join(distDir, "sounds"), path.join(gameDir, "sounds"), { recursive: true });
 
   const originalGameHtml = await readFile(path.join(distDir, "index.html"), "utf8");
   await writeFile(path.join(gameDir, "index.html"), rewriteGameHtml(originalGameHtml), "utf8");

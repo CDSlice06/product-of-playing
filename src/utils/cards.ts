@@ -275,7 +275,7 @@ export function canUseCard(state: GameState, playerId: PlayerId, card: CardType)
         ? getFoolSwordEightPlacements(state, playerId).length > 0
         : canUseSwordEight(state);
     case "temperance":
-      return state.players[otherPlayer(playerId)].hand.length > 0;
+      return true;
     case "hangedman":
     case "fate":
       return true;
