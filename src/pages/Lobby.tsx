@@ -1,4 +1,3 @@
-import { BookOpen, LogOut, Shield, Smartphone, Sparkles, Swords, Trophy, UserPlus, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { signOutAccount } from "@/lib/account";
@@ -8,8 +7,16 @@ import { useSessionStore } from "@/store/sessionStore";
 import { ASSETS } from "@/constants/assets";
 import type { AiDifficulty } from "@/types/game";
 import { AI_DIFFICULTY_DESCRIPTIONS, AI_DIFFICULTY_LABELS } from "@/utils/board";
-import LobbyScene from "@/components/LobbyScene";
 import TarotGallery from "@/components/TarotGallery";
+import LOBBY_VIDEO from "@/assets/lobby-bg-video-clean.mp4";
+import TITLE_VIDEO from "@/assets/lobby-title-video.mp4";
+import BTN_EASY from "@/assets/lobby-btn-easy.png";
+import BTN_MEDIUM from "@/assets/lobby-btn-medium.png";
+import BTN_HARD from "@/assets/lobby-btn-hard.png";
+import BTN_PVP from "@/assets/lobby-btn-pvp.png";
+import HEX_DIVINATION from "@/assets/lobby-hex-divination.png";
+import HEX_GALLERY from "@/assets/lobby-hex-gallery.png";
+import INTRO_FRAME from "@/assets/lobby-intro-frame.png";
 
 export default function Lobby() {
   const navigate = useNavigate();
@@ -51,172 +58,142 @@ export default function Lobby() {
   };
 
   return (
-    <main className="app-shell relative overflow-hidden bg-black flex flex-col items-center justify-center">
+    <main className="app-shell relative overflow-hidden bg-black flex flex-col">
       {/* Global Background */}
-      <div
-        className="absolute inset-0 z-0 opacity-40 pointer-events-none"
-        style={{ backgroundImage: `url(${ASSETS.LOBBY_BG})`, backgroundSize: 'cover', backgroundPosition: 'center', filter: 'blur(2px)' }}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute inset-0 z-0 w-full h-full object-cover pointer-events-none"
+        src={LOBBY_VIDEO}
+        onCanPlay={(e) => { e.currentTarget.play().catch(() => {}); }}
       />
 
-      <div className="app-page-layout relative z-10">
-        {/* Left Side: Lobby Intro & Decor */}
-        <div className="app-scene-panel flex-col items-center justify-center pixel-panel bg-black/40 p-4 relative">
-          <LobbyScene />
+      <div className="relative z-10 w-full h-full">
+        {/* Top: Title */}
+        <video
+          autoPlay muted loop playsInline
+          className="absolute pointer-events-none"
+          style={{ top: '1vh', left: '50%', transform: 'translateX(-50%)', width: '36vw', height: 'auto' }}
+          src={TITLE_VIDEO}
+          onCanPlay={(e) => { e.currentTarget.play().catch(() => {}); }}
+        />
+
+        {/* Left: Intro frame with text overlay */}
+        <div className="absolute" style={{
+          top: '14vh', left: '3vw',
+          width: '22vw', height: '52vh',
+        }}>
+          <img
+            src={INTRO_FRAME}
+            alt="玩法介绍"
+            className="absolute inset-0 w-full h-full"
+            style={{ objectFit: 'fill' }}
+            draggable={false}
+          />
+          <div className="absolute inset-0" style={{ top: '30%', bottom: '12%', left: '8%', right: '8%' }}>
+            <div className="overflow-y-auto pr-2 space-y-2 text-purple-100 leading-6 font-pixel h-full"
+              style={{
+                fontSize: '0.85vw',
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(160,120,220,0.4) transparent',
+              }}>
+              <p>选择练习龙对战模式，开启你的星轨塔罗棋对局。</p>
+              <p>走完棋盘融合占星棋盘，通过跨罗棋开启大昌。</p>
+              <p>选择练习以支付战胜棋式，开启你的星轨塔罗棋棋局。</p>
+              <hr className="border-purple-700/60 my-2" />
+              <p>
+                <strong className="text-white">【回合博弈】</strong>每回合您拥有 <span className="text-amber-300">60秒</span> 决策时间。回合开始时，您必须先在六边形棋盘上向相邻的合法格子<span className="text-blue-300">移动一步</span>，或者直接打出一张塔罗牌。
+              </p>
+              <p>
+                <strong className="text-white">【塔罗法术】</strong>移动完成后，您可以从最多 4 张手牌中打出一张<span className="text-purple-300">塔罗法术牌</span>（如：放置障碍物、与敌方互换位置、扰乱地形或让对方失控），也可以选择结束回合。
+              </p>
+              <p>
+                <strong className="text-white">【手牌调度】</strong>每回合移动会为您抽取一张新牌。如果手牌已满（4张），您必须在回合末进行<span className="text-red-300">"弃一换一"</span>的调度抉择。
+              </p>
+              <p>
+                <strong className="text-white">【胜利条件】</strong>巧妙利用地形障碍与法术卡牌步步紧逼，当对方<span className="text-green-400">无法进行任何合法移动</span>时，您即获得对局的胜利！
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Right Side: Pixel Menu */}
-        <div className="app-side-panel lg:w-[450px] xl:w-[500px] flex flex-col gap-4 sm:gap-6 shrink-0 h-full justify-center overflow-y-auto pixel-scrollbar pb-4">
-          
-          {/* Profile Header */}
-          <div className="pixel-panel relative p-4 bg-black/60 border-2 border-gray-700 flex justify-between items-center">
-            <div>
-              <div className="text-amber-400 font-bold text-lg text-shadow-pixel">{profile?.displayName ?? "占星师"}</div>
-              <div className="text-gray-400 text-xs mt-1 font-pixel">
-                {isGuest ? "游客模式" : "正式账号"} | {profile?.rankTier ?? "知灵"} | {profile?.ratingPoints ?? 0} 分
-              </div>
-            </div>
-            <button onClick={handleSignOut} className="p-2 bg-red-900/50 hover:bg-red-800/80 border-2 border-red-900 text-red-200 transition-colors">
-              <LogOut className="size-5" />
-            </button>
-          </div>
-
+        {/* Right: Hexagon buttons (absolute, independent) */}
+        <div className="absolute" style={{
+          top: '26vh', right: '8vw',
+          display: 'flex', flexDirection: 'column', gap: '-3vh',
+        }}>
           <button
             onClick={() => navigate("/divination")}
-            className="pixel-panel relative overflow-hidden p-0 border-2 border-fuchsia-500/70 bg-black/70 text-left transition-all hover:border-fuchsia-300 hover:shadow-[0_0_24px_rgba(217,70,239,0.35)]"
+            className="transition-transform hover:scale-105"
+            style={{
+              background: 'transparent', border: 'none', padding: 0, margin: 0,
+              cursor: 'pointer', lineHeight: 0,
+            }}
           >
-            <div
-              className="absolute inset-0 opacity-45"
-              style={{ backgroundImage: `url(${ASSETS.DIVINATION_HERO})`, backgroundSize: "cover", backgroundPosition: "center" }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-fuchsia-950/60" />
-            <div className="relative z-10 p-4 sm:p-5">
-              <div className="inline-flex items-center gap-2 border border-fuchsia-400/60 bg-fuchsia-950/50 px-3 py-1 text-[10px] font-bold text-fuchsia-200">
-                <Sparkles className="size-3.5" />
-                神秘占卜
-              </div>
-              <div className="mt-3 text-white font-bold text-xl text-shadow-pixel">塔罗占卜</div>
-              <div className="mt-2 max-w-md text-xs leading-6 text-fuchsia-100/90">
-                完整 78 张塔罗牌，按洗牌、切牌、抽牌、解读流程进行占卜。
-              </div>
-              <div className="mt-4 flex flex-wrap gap-2 text-[10px]">
-                <span className="border border-fuchsia-400/50 bg-fuchsia-950/45 px-2 py-1 text-fuchsia-100">78 张完整牌库</span>
-                <span className="border border-amber-400/50 bg-amber-950/35 px-2 py-1 text-amber-100">仪式感流程</span>
-                <span className="border border-cyan-400/50 bg-cyan-950/35 px-2 py-1 text-cyan-100">逐张翻牌</span>
-              </div>
-            </div>
+            <img src={HEX_DIVINATION} alt="塔罗占卜" draggable={false} style={{ width: '13vw', height: 'auto', display: 'block' }} />
           </button>
+          <button
+            onClick={() => setShowGallery(true)}
+            className="transition-transform hover:scale-105"
+            style={{
+              background: 'transparent', border: 'none', padding: 0, margin: 0, marginTop: '3vh',
+              cursor: 'pointer', lineHeight: 0,
+            }}
+          >
+            <img src={HEX_GALLERY} alt="塔罗图鉴" draggable={false} style={{ width: '13vw', height: 'auto', display: 'block' }} />
+          </button>
+        </div>
 
-          {/* Mode Select */}
-          <div className="pixel-panel relative p-4 sm:p-6 bg-black/60 border-2 border-gray-700 flex flex-col gap-4 mt-2">
-             <div className="absolute -top-4 left-6 bg-gray-800 border-2 border-gray-600 px-4 py-1 text-amber-400 text-sm font-bold z-10 shadow-md">
-               游戏大厅
-             </div>
-             
-             {/* Online Modes */}
-             <div className="grid grid-cols-2 gap-3 mt-4">
-                <div
-                  aria-disabled="true"
-                  className="relative flex flex-col items-center justify-center p-3 border-2 border-gray-700 bg-black/50 opacity-70 cursor-not-allowed select-none"
-                >
-                  <div className="relative mb-2 pt-4">
-                    <Trophy className="size-8 text-amber-400 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
-                    <span className="absolute left-1/2 top-0 -translate-x-1/2 border border-amber-500 bg-amber-900/90 px-1.5 py-0.5 text-[9px] font-bold leading-none text-amber-200 whitespace-nowrap">
-                      待开放
-                    </span>
-                  </div>
-                  <span className="text-white font-bold text-shadow-pixel">随机匹配</span>
-                  <span className="mt-1 text-[10px] text-amber-300">功能暂未开放</span>
-                </div>
-                <button
-                  disabled={isGuest}
-                  onClick={() => navigate("/rooms")}
-                  className="flex flex-col items-center justify-center p-3 border-2 border-gray-700 bg-black/50 hover:border-cyan-400 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed group transition-all"
-                >
-                  <Users className="size-8 text-cyan-400 mb-2 group-hover:animate-pulse drop-shadow-[0_0_8px_rgba(34,211,238,0.6)]" />
-                  <span className="text-white font-bold text-shadow-pixel">自定义房间</span>
-                </button>
-             </div>
-
-             <div className="grid grid-cols-2 gap-3">
-                <button
-                  disabled={isGuest}
-                  onClick={() => navigate("/friends")}
-                  className="flex flex-col items-center justify-center p-3 border-2 border-gray-700 bg-black/50 hover:border-emerald-400 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed group transition-all"
-                >
-                  <UserPlus className="size-8 text-emerald-400 mb-2 group-hover:animate-pulse drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
-                  <span className="text-white font-bold text-shadow-pixel">好友系统</span>
-                </button>
-                <button
-                  disabled={isGuest}
-                  onClick={() => navigate("/leaderboard")}
-                  className="flex flex-col items-center justify-center p-3 border-2 border-gray-700 bg-black/50 hover:border-violet-400 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed group transition-all"
-                >
-                  <Shield className="size-8 text-violet-400 mb-2 group-hover:animate-pulse drop-shadow-[0_0_8px_rgba(167,139,250,0.6)]" />
-                  <span className="text-white font-bold text-shadow-pixel">天梯榜</span>
-                </button>
-             </div>
-
-             <div className="border-t-2 border-gray-700 my-2" />
-
-             {/* Local / PVE Modes */}
-             <div className="flex flex-col gap-3">
-                <div className="p-3 border-2 border-gray-700 bg-black/50">
-                  <div className="flex items-center gap-3">
-                    <Swords className="size-6 text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]" />
-                    <div className="text-left">
-                      <div className="text-white font-bold text-shadow-pixel">人机练习</div>
-                      <div className="text-gray-400 text-xs mt-1">单人挑战命运傀儡，可自行选择简单 / 中等 / 困难</div>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    {(["easy", "medium", "hard"] as AiDifficulty[]).map((difficulty) => (
-                      <button
-                        key={difficulty}
-                        type="button"
-                        onClick={() => handleGuestPve(difficulty)}
-                        className={`border-2 px-2 py-2 text-xs font-bold transition-all ${
-                          aiDifficulty === difficulty
-                            ? "border-cyan-300 bg-cyan-900/50 text-cyan-100"
-                            : "border-cyan-900/70 bg-cyan-950/40 text-cyan-300 hover:border-cyan-500 hover:bg-cyan-900/40"
-                        }`}
-                      >
-                        {AI_DIFFICULTY_LABELS[difficulty]}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="mt-2 text-[11px] text-cyan-200">
-                    当前默认：{AI_DIFFICULTY_LABELS[aiDifficulty]}。{AI_DIFFICULTY_DESCRIPTIONS[aiDifficulty]}
-                  </div>
-                </div>
-                <button
-                  disabled={isGuest}
-                  onClick={handleLocalPvp}
-                  className="flex items-center gap-3 p-3 border-2 border-gray-700 bg-black/50 hover:border-gray-400 hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                >
-                  <Smartphone className="size-6 text-gray-400" />
-                  <div className="text-left">
-                    <div className="text-white font-bold text-shadow-pixel">本地双人</div>
-                    <div className="text-gray-400 text-xs mt-1">线下同屏对战</div>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setShowGallery(true)}
-                  className="flex items-center gap-3 p-3 border-2 border-gray-700 bg-black/50 hover:border-amber-400 hover:bg-gray-800 transition-all"
-                >
-                  <BookOpen className="size-6 text-amber-400 drop-shadow-[0_0_5px_rgba(251,191,36,0.8)]" />
-                  <div className="text-left">
-                    <div className="text-white font-bold text-shadow-pixel">命运塔罗图鉴</div>
-                    <div className="text-gray-400 text-xs mt-1">查看所有卡牌效果与寓意</div>
-                  </div>
-                </button>
-             </div>
-             
-             {isGuest && (
-               <div className="mt-2 text-xs text-amber-500 text-center bg-amber-900/20 p-2 border border-amber-900 font-bold">
-                 当前为游客模式，仅开放人机练习。
-               </div>
-             )}
-          </div>
+        {/* Bottom: Mode buttons (absolute, custom images) */}
+        <div className="absolute" style={{
+          top: '83vh', left: '4vw', right: '4vw',
+          display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
+          gridAutoRows: '12vh',
+          gap: '1.5vw',
+        }}>
+          {([
+            ["easy", BTN_EASY],
+            ["medium", BTN_MEDIUM],
+            ["hard", BTN_HARD],
+          ] as [AiDifficulty, string][]).map(([difficulty, img]) => (
+            <button
+              key={difficulty}
+              type="button"
+              onClick={() => handleGuestPve(difficulty)}
+              className="relative hover:scale-105 transition-transform"
+              style={{
+                background: `url(${img}) center / 100% 100% no-repeat`,
+                backgroundColor: 'transparent',
+                border: 'none',
+                padding: '0',
+                margin: '0',
+                width: '100%',
+                height: '100%',
+                minHeight: 0,
+                minWidth: 0,
+                cursor: 'pointer',
+              }}
+            />
+          ))}
+          <button
+            disabled={isGuest}
+            onClick={handleLocalPvp}
+            className="relative hover:scale-105 transition-transform disabled:cursor-not-allowed"
+            style={{
+              background: `url(${BTN_PVP}) center / 100% 100% no-repeat`,
+              backgroundColor: 'transparent',
+              border: 'none',
+              padding: '0',
+              margin: '0',
+              width: '100%',
+              height: '100%',
+              minHeight: 0,
+              minWidth: 0,
+              cursor: isGuest ? 'not-allowed' : 'pointer',
+            }}
+          />
         </div>
       </div>
 

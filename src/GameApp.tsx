@@ -4,13 +4,8 @@ import { getToken } from "@/lib/api";
 import Auth from "@/pages/Auth";
 import Home from "@/pages/Home";
 import Battle from "@/pages/Battle";
-import Friends from "@/pages/Friends";
-import Leaderboard from "@/pages/Leaderboard";
 import Lobby from "@/pages/Lobby";
-import Ranked from "@/pages/Ranked";
-import RoomWait from "@/pages/RoomWait";
-import Rooms from "@/pages/Rooms";
-import TarotDivination from "@/pages/TarotDivination";
+import TarotDivination from "@/pages/TarotDivinationCanvas";
 import MobileOrientationGuard from "@/components/MobileOrientationGuard";
 import SoundToggle from "@/components/SoundToggle";
 import { useSessionStore } from "@/store/sessionStore";
@@ -95,11 +90,6 @@ export default function GameApp() {
         <Route path="/" element={<RootRedirect />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/lobby" element={<RequireSession><Lobby /></RequireSession>} />
-        <Route path="/friends" element={<RequireAuthenticated><Friends /></RequireAuthenticated>} />
-        <Route path="/leaderboard" element={<RequireAuthenticated><Leaderboard /></RequireAuthenticated>} />
-        <Route path="/rooms" element={<RequireAuthenticated><Rooms /></RequireAuthenticated>} />
-        <Route path="/room-wait" element={<RequireAuthenticated><RoomWait /></RequireAuthenticated>} />
-        <Route path="/ranked" element={<RequireAuthenticated><Ranked /></RequireAuthenticated>} />
         <Route path="/divination" element={<RequireSession><TarotDivination /></RequireSession>} />
         <Route path="/play-local" element={<RequireSession><Home /></RequireSession>} />
         <Route path="/battle" element={<Battle />} />

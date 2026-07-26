@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSessionStore } from "@/store/sessionStore";
 import { ASSETS } from "@/constants/assets";
 import LobbyCharacter from "@/components/LobbyCharacter";
+import LobbyEffects from "@/components/LobbyEffects";
 
 
 export default function Auth() {
@@ -87,11 +88,13 @@ export default function Auth() {
 
       <LobbyCharacter />
 
+      <LobbyEffects />
+
       <img
         src={ASSETS.LOBBY_TITLE}
         alt="星轨塔罗棋"
-        className="absolute left-1/2 z-20 pointer-events-none"
-        style={{ top: '-7vh', transform: 'translateX(-50%)', width: '62vw', height: 'auto' }}
+        className="absolute z-20 pointer-events-none"
+        style={{ top: '-7vh', left: '49.8%', transform: 'translateX(-50%)', width: '70vw', height: 'auto' }}
       />
 
       <img

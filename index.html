@@ -20,5 +20,26 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function() {
+        // 禁用右键菜单
+        document.addEventListener('contextmenu', function(e) { e.preventDefault(); });
+        // 禁用拖拽保存
+        document.addEventListener('dragstart', function(e) { e.preventDefault(); });
+        // 图片/Canvas 上禁止选中
+        document.addEventListener('selectstart', function(e) {
+          var t = e.target.tagName;
+          if (t === 'IMG' || t === 'CANVAS') e.preventDefault();
+        });
+        // 阻止 Ctrl+S / Ctrl+U / F12 / Ctrl+Shift+I / Ctrl+Shift+C
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'F12') { e.preventDefault(); return; }
+          if (e.ctrlKey || e.metaKey) {
+            if (e.key === 's' || e.key === 'S' || e.key === 'u' || e.key === 'U') { e.preventDefault(); return; }
+            if (e.shiftKey && (e.key === 'I' || e.key === 'i' || e.key === 'J' || e.key === 'j' || e.key === 'C' || e.key === 'c')) { e.preventDefault(); return; }
+          }
+        });
+      })();
+    </script>
   </body>
 </html>

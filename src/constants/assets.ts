@@ -6,7 +6,34 @@ import LOBBY_TITLE_IMG from "../assets/lobby-title-original.png";
 import ASTROLOGER_BANNER from "../assets/player-astrologer-banner-transparent.png";
 import OCCULTIST_BANNER from "../assets/player-occultist-banner-transparent.png";
 import START_BUTTON_IMG from "../assets/start-button-transparent.png";
+import MAJOR_TOWER from "../assets/tarot-major-tower.png";
+import MAJOR_FOOL from "../assets/tarot-major-fool.png";
+import MAJOR_MAGICIAN from "../assets/tarot-major-magician.png";
+import MAJOR_EMPRESS from "../assets/tarot-major-empress.png";
+import MAJOR_STRENGTH from "../assets/tarot-major-strength.png";
+import MAJOR_WHEEL from "../assets/tarot-major-wheel.png";
+import MAJOR_HANGED_MAN from "../assets/tarot-major-hanged-man.png";
+import MAJOR_DEATH from "../assets/tarot-major-death.png";
+import MAJOR_TEMPERANCE from "../assets/tarot-major-temperance.png";
+import MAJOR_DEVIL from "../assets/tarot-major-devil.png";
+import MAJOR_MOON from "../assets/tarot-major-moon.png";
+import MAJOR_SUN from "../assets/tarot-major-sun.png";
 import type { TarotCardDefinition } from "@/data/tarotDeck";
+
+const MAJOR_CARD_OVERRIDES: Record<string, string> = {
+  "major-fool": MAJOR_FOOL,
+  "major-magician": MAJOR_MAGICIAN,
+  "major-empress": MAJOR_EMPRESS,
+  "major-strength": MAJOR_STRENGTH,
+  "major-wheel-of-fortune": MAJOR_WHEEL,
+  "major-hanged-man": MAJOR_HANGED_MAN,
+  "major-death": MAJOR_DEATH,
+  "major-temperance": MAJOR_TEMPERANCE,
+  "major-devil": MAJOR_DEVIL,
+  "major-tower": MAJOR_TOWER,
+  "major-moon": MAJOR_MOON,
+  "major-sun": MAJOR_SUN,
+};
 
 export const generateImageUrl = (prompt: string, size: string = "landscape_16_9") => {
   return `https://coresg-normal.trae.ai/api/ide/v1/text_to_image?prompt=${encodeURIComponent(prompt)}&image_size=${size}`;
@@ -45,15 +72,15 @@ export const ASSETS = {
 
 export const getCardImage = (cardName: string) => {
   switch (cardName) {
-    case "obstacle": return ASSETS.CARD_MOON;
+    case "fool": return MAJOR_FOOL;
+    case "tower": return MAJOR_TOWER;
+    case "storm": return MAJOR_DEVIL;
+    case "obstacle": return MAJOR_MOON;
+    case "swords8": return MAJOR_STRENGTH;
+    case "temperance": return MAJOR_TEMPERANCE;
+    case "hangedman": return MAJOR_HANGED_MAN;
+    case "fate": return MAJOR_WHEEL;
     case "chalice": return ASSETS.CARD_CHALICE;
-    case "storm": return ASSETS.CARD_DEVIL;
-    case "tower": return ASSETS.CARD_TOWER;
-    case "fool": return ASSETS.CARD_FOOL;
-    case "swords8": return ASSETS.CARD_SWORDS8;
-    case "temperance": return ASSETS.CARD_TEMPERANCE;
-    case "hangedman": return ASSETS.CARD_HANGEDMAN;
-    case "fate": return ASSETS.CARD_FATE;
     default: return ASSETS.CARD_BACK;
   }
 };
@@ -192,5 +219,6 @@ function buildTarotInlineSvg(card: TarotCardDefinition) {
 }
 
 export function getTarotCardImage(card: TarotCardDefinition) {
+  if (MAJOR_CARD_OVERRIDES[card.id]) return MAJOR_CARD_OVERRIDES[card.id];
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(buildTarotInlineSvg(card))}`;
 }
